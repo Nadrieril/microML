@@ -29,7 +29,7 @@ reserved   = Token.reserved   lexer -- parses a reserved name
 reservedOp = Token.reservedOp lexer -- parses an operator
 parens     = Token.parens     lexer -- parses surrounding parenthesis
 natural    = Token.natural    lexer -- parses an natural
--- whiteSpace = Token.whiteSpace lexer -- parses whitespace
+whiteSpace = Token.whiteSpace lexer -- parses whitespace
 
 
 operators :: forall st. [[Operator Char st Expr]]
@@ -69,7 +69,6 @@ ifthenelse = do
     e2 <- expr
     return $ If b e1 e2
 
-
 boolean :: Parser Expr
 boolean = (reserved "true" >> return (BoolConst True))
       <|> (reserved "false" >> return (BoolConst False))
@@ -92,4 +91,4 @@ expr = buildExpressionParser operators funAp
 
 
 parseML :: String -> Either ParseError Expr
-parseML = parse expr "(unknown)"
+parseML = parse (whiteSpace >> expr) "(unknown)"
