@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts, RankNTypes #-}
 module Parse (parseML) where
 
+import Control.Monad (when)
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Language
@@ -51,15 +52,22 @@ operators = [ [neg]
         eq =  Infix  (f "=="  (ABinary Eq)       ) AssocLeft
 
 
-letin :: Parser Expr
-letin = do
+letin :: Bool -> Parser Expr
+letin b = do
     reserved "let"
+    when b $ reserved "rec"
     x <- ident
     reservedOp "="
     v <- expr
     reserved "in"
     e <- expr
-    return $ Let x v e
+    return $ (if b then LetR else Let) x v e
+
+letnonrec :: Parser Expr
+letnonrec = letin False
+letrec :: Parser Expr
+letrec = letin True
+
 
 ifthenelse :: Parser Expr
 ifthenelse = do
@@ -85,7 +93,8 @@ boolean = (reserved "true" >> return (BoolConst True))
 
 atom :: Parser Expr
 atom =  parens expr
-    <|> letin
+    <|> try letnonrec
+    <|> letrec
     <|> ifthenelse
     <|> lambda
     <|> boolean

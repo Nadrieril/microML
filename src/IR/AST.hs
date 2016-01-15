@@ -12,17 +12,19 @@ instance Show BinOp where
   show And = "and"
   show Eq = "=="
 
+type Name = String
 
 data Expr =
-      Var String
+      Var Name
     | BoolConst Bool
     | IntConst Integer
     | Neg Expr
     | ABinary BinOp Expr Expr
     | Ap Expr Expr
-    | Let String Expr Expr
+    | Let Name Expr Expr
+    | LetR Name Expr Expr
     | If Expr Expr Expr
-    | Fun String Expr
+    | Fun Name Expr
 
 instance Show Expr where
   show (Var x) = x
@@ -32,5 +34,6 @@ instance Show Expr where
   show (ABinary o x y) = printf "(%s %s %s)" (show x) (show o) (show y)
   show (Ap f x) = printf "(%s %s)" (show f) (show x)
   show (Let x v e) = printf "let %s = %s in\n%s" x (show v) (show e)
+  show (LetR x v e) = printf "let rec %s = %s in\n%s" x (show v) (show e)
   show (If b e1 e2) = printf "if %s then %s else %s" (show b) (show e1) (show e2)
   show (Fun x e) = printf "(fun %s -> %s)" (show x) (show e)

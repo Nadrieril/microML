@@ -44,6 +44,8 @@ evalE _ (IntConst i) = VInt i
 evalE env (Neg e) = evalE env (ABinary Subtract (IntConst 0) e)
 evalE env (ABinary o x y) = evalOp o (evalE env x) (evalE env y)
 evalE env (Let x v e) = evalE (M.insert x (evalE env v) env) e
+evalE env (LetR f v e) = evalE (M.insert f body env) e
+    where body = evalE (M.insert f body env) v
 evalE env (If b e1 e2) =
     case evalE env b of
         VBool True -> evalE env e1
