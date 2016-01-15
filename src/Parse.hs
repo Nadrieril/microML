@@ -24,7 +24,7 @@ languageDef =
 lexer = Token.makeTokenParser languageDef
 
 ident      = Token.identifier lexer -- parses an identifier
--- reserved   = Token.reserved   lexer -- parses a reserved name
+reserved   = Token.reserved   lexer -- parses a reserved name
 reservedOp = Token.reservedOp lexer -- parses an operator
 parens     = Token.parens     lexer -- parses surrounding parenthesis
 natural    = Token.natural    lexer -- parses an natural
@@ -48,9 +48,13 @@ operators = [ [neg]
         and = Infix  (f "and" (ABinary And)      ) AssocLeft
 
 
+boolean :: Parser Expr
+boolean = (reserved "true" >> return (BoolConst True))
+      <|> (reserved "false" >> return (BoolConst False))
 
 atom :: Parser Expr
 atom =  parens expr
+    <|> boolean
     <|> IntConst <$> natural
     <|> Var <$> ident
     <?> "atom"

@@ -14,6 +14,7 @@ instance Show BinOp where
 
 data Expr =
       Var String
+    | BoolConst Bool
     | IntConst Integer
     | Neg Expr
     | ABinary BinOp Expr Expr
@@ -21,6 +22,7 @@ data Expr =
 
 instance Show Expr where
   show (Var x) = x
+  show (BoolConst b) = if b then "True" else "False"
   show (IntConst i) = show i
   show (Neg e) = "-" ++ show e
   show (ABinary o x y) = printf "(%s %s %s)" (show x) (show o) (show y)
