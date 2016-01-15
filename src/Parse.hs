@@ -15,10 +15,11 @@ languageDef =
         , Token.commentEnd      = "*)"
         , Token.commentLine     = "//"
         , Token.reservedNames   = [ "if" , "then" , "else"
+                                  , "let", "rec", "in"
                                   , "true" , "false"
                                   , "not" , "and" , "or"
                                   ]
-        , Token.reservedOpNames = ["+", "-", "*", "/", "<", ">", "and", "or", "not" ]
+        , Token.reservedOpNames = ["=", "+", "-", "*", "/", "<", ">", "and", "or", "not" ]
     }
 
 lexer = Token.makeTokenParser languageDef
@@ -48,12 +49,24 @@ operators = [ [neg]
         and = Infix  (f "and" (ABinary And)      ) AssocLeft
 
 
+letin :: Parser Expr
+letin = do
+    reserved "let"
+    x <- ident
+    reservedOp "="
+    v <- expr
+    reserved "in"
+    e <- expr
+    return $ Let x v e
+
+
 boolean :: Parser Expr
 boolean = (reserved "true" >> return (BoolConst True))
       <|> (reserved "false" >> return (BoolConst False))
 
 atom :: Parser Expr
 atom =  parens expr
+    <|> letin
     <|> boolean
     <|> IntConst <$> natural
     <|> Var <$> ident

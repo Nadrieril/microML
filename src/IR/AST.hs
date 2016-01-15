@@ -19,6 +19,7 @@ data Expr =
     | Neg Expr
     | ABinary BinOp Expr Expr
     | Ap Expr Expr
+    | Let String Expr Expr
 
 instance Show Expr where
   show (Var x) = x
@@ -27,3 +28,4 @@ instance Show Expr where
   show (Neg e) = "-" ++ show e
   show (ABinary o x y) = printf "(%s %s %s)" (show x) (show o) (show y)
   show (Ap f x) = printf "(%s %s)" (show f) (show x)
+  show (Let x v e) = printf "let %s = %s in %s" (show x) (show v) (show e)
