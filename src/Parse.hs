@@ -17,9 +17,9 @@ languageDef =
         , Token.reservedNames   = [ "if" , "then" , "else"
                                   , "let", "rec", "in", "fun"
                                   , "true" , "false"
-                                  , "not" , "and" , "or"
+                                  , "and", "or", "not"
                                   ]
-        , Token.reservedOpNames = ["=", "+", "-", "*", "/", "<", ">", "and", "or", "not", "->" ]
+        , Token.reservedOpNames = ["=", "+", "-", "*", "/", "<", ">", "==", "->" ]
     }
 
 lexer = Token.makeTokenParser languageDef
@@ -37,7 +37,8 @@ operators = [ [neg]
             , [mul, div]
             , [add, sub]
             , [and]
-            , [or] ]
+            , [or]
+            , [eq] ]
     where
         f c v = reservedOp c >> return v
         neg = Prefix (f "-"   Neg                )
@@ -47,6 +48,7 @@ operators = [ [neg]
         sub = Infix  (f "-"   (ABinary Subtract) ) AssocLeft
         or  = Infix  (f "or"  (ABinary Or)       ) AssocLeft
         and = Infix  (f "and" (ABinary And)      ) AssocLeft
+        eq =  Infix  (f "=="  (ABinary Eq)       ) AssocLeft
 
 
 letin :: Parser Expr

@@ -24,6 +24,11 @@ evalOp Add = withInt (+)
 evalOp Subtract = withInt (-)
 evalOp Or = withBool (||)
 evalOp And = withBool (&&)
+evalOp Eq = f
+    where
+      f (VInt x) (VInt y) = VBool (x==y)
+      f (VBool x) (VBool y) = VBool (x==y)
+      f x y = error $ printf "Error: %s and %s cannot be compared" (show x) (show y)
 
 ap :: Val -> Val -> Val
 ap (VFun env x v) y = evalE (M.insert x y env) v

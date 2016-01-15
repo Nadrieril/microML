@@ -1,7 +1,7 @@
 module IR.AST where
 import Text.Printf (printf)
 
-data BinOp = Multiply | Divide | Add | Subtract | Or | And
+data BinOp = Multiply | Divide | Add | Subtract | Or | And | Eq
 
 instance Show BinOp where
   show Multiply = "*"
@@ -10,6 +10,7 @@ instance Show BinOp where
   show Subtract = "-"
   show Or = "or"
   show And = "and"
+  show Eq = "=="
 
 
 data Expr =
