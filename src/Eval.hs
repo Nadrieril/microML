@@ -34,6 +34,12 @@ eval_ _ (IntConst i) = VInt i
 eval_ env (Neg e) = eval_ env (ABinary Subtract (IntConst 0) e)
 eval_ env (ABinary o x y) = evalOp o (eval_ env x) (eval_ env y)
 eval_ env (Let x v e) = eval_ (M.insert x v env) e
+eval_ env (If b e1 e2) =
+    case eval_ env b of
+        VBool True -> eval_ env e1
+        VBool False -> eval_ env e2
+        v -> error $ printf "Error: attempting to evaluate %s as bool" (show v)
+
 eval_ _ _ = undefined
 
 eval :: Expr -> Val

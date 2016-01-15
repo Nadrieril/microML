@@ -59,6 +59,16 @@ letin = do
     e <- expr
     return $ Let x v e
 
+ifthenelse :: Parser Expr
+ifthenelse = do
+    reserved "if"
+    b <- expr
+    reservedOp "then"
+    e1 <- expr
+    reserved "else"
+    e2 <- expr
+    return $ If b e1 e2
+
 
 boolean :: Parser Expr
 boolean = (reserved "true" >> return (BoolConst True))
@@ -67,6 +77,7 @@ boolean = (reserved "true" >> return (BoolConst True))
 atom :: Parser Expr
 atom =  parens expr
     <|> letin
+    <|> ifthenelse
     <|> boolean
     <|> IntConst <$> natural
     <|> Var <$> ident
