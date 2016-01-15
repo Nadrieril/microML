@@ -1,0 +1,18 @@
+cabal-version:  >= 1.6
+build-type:     Simple
+name:           microML
+version:        0.0.1
+author:         Nadrieril
+
+executable main
+    main-is: main.hs
+    hs-source-dirs: ., src
+    other-modules:
+          Parse
+          IR.AST
+
+    build-depends:
+          base
+        , parsec
+
+    ghc-options: -Wall -fno-warn-missing-signatures -fno-warn-name-shadowing -fno-warn-unused-do-bind
