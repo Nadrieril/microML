@@ -26,28 +26,26 @@ evalOp Or = withBool (||)
 evalOp And = withBool (&&)
 
 ap :: Val -> Val -> Val
-ap (VFun env x v) y = eval_ (M.insert x y env) v
+ap (VFun env x v) y = evalE (M.insert x y env) v
 ap v _ = error $ printf "Error: attempting to evaluate %s as function" (show v)
 
 
 type Env = M.Map String Val
 
-eval_ :: Env -> Expr -> Val
-eval_ env (Var x) = env M.! x
-eval_ _ (BoolConst b) = VBool b
-eval_ _ (IntConst i) = VInt i
-eval_ env (Neg e) = eval_ env (ABinary Subtract (IntConst 0) e)
-eval_ env (ABinary o x y) = evalOp o (eval_ env x) (eval_ env y)
-eval_ env (Let x v e) = eval_ (M.insert x (eval_ env v) env) e
-eval_ env (If b e1 e2) =
-    case eval_ env b of
-        VBool True -> eval_ env e1
-        VBool False -> eval_ env e2
+evalE :: Env -> Expr -> Val
+evalE env (Var x) = env M.! x
+evalE _ (BoolConst b) = VBool b
+evalE _ (IntConst i) = VInt i
+evalE env (Neg e) = evalE env (ABinary Subtract (IntConst 0) e)
+evalE env (ABinary o x y) = evalOp o (evalE env x) (evalE env y)
+evalE env (Let x v e) = evalE (M.insert x (evalE env v) env) e
+evalE env (If b e1 e2) =
+    case evalE env b of
+        VBool True -> evalE env e1
+        VBool False -> evalE env e2
         v -> error $ printf "Error: attempting to evaluate %s as bool" (show v)
-eval_ env (Fun x e) = VFun env x e
-eval_ env (Ap f x) = ap (eval_ env f) (eval_ env x)
-
--- eval_ _ _ = undefined
+evalE env (Fun x e) = VFun env x e
+evalE env (Ap f x) = ap (evalE env f) (evalE env x)
 
 eval :: Expr -> Val
-eval = eval_ M.empty
+eval = evalE M.empty

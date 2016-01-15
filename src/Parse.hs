@@ -63,7 +63,7 @@ ifthenelse :: Parser Expr
 ifthenelse = do
     reserved "if"
     b <- expr
-    reservedOp "then"
+    reserved "then"
     e1 <- expr
     reserved "else"
     e2 <- expr

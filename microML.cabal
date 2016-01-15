@@ -8,8 +8,9 @@ executable main
     main-is: main.hs
     hs-source-dirs: ., src
     other-modules:
-          Parse
           IR.AST
+          Parse
+          Eval
 
     build-depends:
           base
