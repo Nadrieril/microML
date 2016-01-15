@@ -14,5 +14,6 @@ executable main
     build-depends:
           base
         , parsec
+        , containers
 
     ghc-options: -Wall -fno-warn-missing-signatures -fno-warn-name-shadowing -fno-warn-unused-do-bind
