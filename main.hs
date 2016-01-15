@@ -5,9 +5,11 @@ import Eval
 
 main :: IO ()
 main = do
+    putStrLn ""
     code <- readFile "tests/01.ml"
     let res = parseML code
-    print res
     case res of
-      Right ast -> print $ eval ast
-      _ -> return ()
+      Right ast -> do
+          print ast
+          putStrLn $ "-> " ++ show (eval ast)
+      Left err -> putStrLn $ "Error: " ++ show err
