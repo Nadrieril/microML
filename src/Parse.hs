@@ -15,11 +15,11 @@ languageDef =
         , Token.commentEnd      = "*)"
         , Token.commentLine     = "//"
         , Token.reservedNames   = [ "if" , "then" , "else"
-                                  , "let", "rec", "in"
+                                  , "let", "rec", "in", "fun"
                                   , "true" , "false"
                                   , "not" , "and" , "or"
                                   ]
-        , Token.reservedOpNames = ["=", "+", "-", "*", "/", "<", ">", "and", "or", "not" ]
+        , Token.reservedOpNames = ["=", "+", "-", "*", "/", "<", ">", "and", "or", "not", "->" ]
     }
 
 lexer = Token.makeTokenParser languageDef
@@ -69,6 +69,14 @@ ifthenelse = do
     e2 <- expr
     return $ If b e1 e2
 
+lambda :: Parser Expr
+lambda = do
+    reserved "fun"
+    x <- ident
+    reservedOp "->"
+    e <- expr
+    return $ Fun x e
+
 boolean :: Parser Expr
 boolean = (reserved "true" >> return (BoolConst True))
       <|> (reserved "false" >> return (BoolConst False))
@@ -77,6 +85,7 @@ atom :: Parser Expr
 atom =  parens expr
     <|> letin
     <|> ifthenelse
+    <|> lambda
     <|> boolean
     <|> IntConst <$> natural
     <|> Var <$> ident

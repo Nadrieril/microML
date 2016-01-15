@@ -21,6 +21,7 @@ data Expr =
     | Ap Expr Expr
     | Let String Expr Expr
     | If Expr Expr Expr
+    | Fun String Expr
 
 instance Show Expr where
   show (Var x) = x
@@ -31,3 +32,4 @@ instance Show Expr where
   show (Ap f x) = printf "(%s %s)" (show f) (show x)
   show (Let x v e) = printf "let %s = %s in %s" (show x) (show v) (show e)
   show (If b e1 e2) = printf "if %s then %s else %s" (show b) (show e1) (show e2)
+  show (Fun x e) = printf "(fun %s -> %s)" (show x) (show e)
