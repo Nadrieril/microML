@@ -1,11 +1,14 @@
-module IR.DeBruijn where
+module DeBruijn.Expr where
 
 import Text.Printf (printf)
 import Data.List (elemIndex)
 import Control.Monad.State (State, put, get, modify, evalState)
+-- import System.IO.Unsafe (unsafePerformIO)
 
-import IR.AFT (Name, Value)
-import qualified IR.AFT as AFT
+import AFT.Expr (Name, Value)
+import qualified AFT.Expr as AFT
+
+-- trace x y = unsafePerformIO (print x >> return y)
 
 type Id = Int
 

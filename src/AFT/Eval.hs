@@ -1,5 +1,5 @@
 {-# LANGUAGE RecursiveDo #-}
-module EvalAFT
+module AFT.Eval
     ( eval
     ) where
 
@@ -7,8 +7,8 @@ import qualified Data.Map as M
 import Text.Printf (printf)
 import Control.Monad.State (get, put, modify, evalState)
 
-import IR.AFT (Expr(..), Name(..), Value(..))
-import EvalAST (Eval, Val(..), stdLib)
+import AFT.Expr (Expr(..), Name(..), Value(..))
+import AST.Eval (Eval, Val(..), stdLib)
 
 
 evalAp :: Val Expr -> Val Expr -> Eval Expr

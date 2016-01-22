@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
-module IR.AFT
+module AFT.Expr
     ( AST.Name(..)
     , AST.Value(..)
     , Expr(..)
@@ -8,8 +8,8 @@ module IR.AFT
 
 import Text.Printf (printf)
 
-import IR.AST (Value)
-import qualified IR.AST as AST
+import AST.Expr (Value)
+import qualified AST.Expr as AST
 
 data Expr a =
       Var a

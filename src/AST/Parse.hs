@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts, RankNTypes #-}
-module Parse (parseML) where
+module AST.Parse (parseML) where
 
 import Control.Monad (when)
 import Text.ParserCombinators.Parsec
@@ -7,8 +7,8 @@ import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Language
 import qualified Text.ParserCombinators.Parsec.Token as Token
 
-import IR.AST hiding (Infix)
-import qualified IR.AST as AST
+import AST.Expr hiding (Infix)
+import qualified AST.Expr as AST
 
 -----------------------------------------------------------------------------
 languageDef =
