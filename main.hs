@@ -1,7 +1,9 @@
 module Main where
 
 import Parse
-import EvalAST
+import qualified EvalAST
+import qualified EvalAFT
+import IR.AFT (fromAST)
 
 main :: IO ()
 main = do
@@ -9,7 +11,11 @@ main = do
     code <- readFile "tests/01.ml"
     let res = parseML code
     case res of
+      Left err -> putStrLn $ "Error: " ++ show err
       Right ast -> do
           print ast
-          putStrLn $ "-> " ++ show (eval ast)
-      Left err -> putStrLn $ "Error: " ++ show err
+          putStrLn $ "-> " ++ show (EvalAST.eval ast)
+          putStrLn ""
+          let aft = fromAST ast
+          print aft
+          putStrLn $ "-> " ++ show (EvalAFT.eval aft)
