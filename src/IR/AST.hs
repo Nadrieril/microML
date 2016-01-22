@@ -8,10 +8,12 @@ instance Show BinOp where
 
 type Name = String
 
+data Value = B Bool | I Integer
+    deriving (Show)
+
 data Expr a =
       Var a
-    | BoolConst Bool
-    | IntConst Integer
+    | Const Value
     | ABinary BinOp (Expr a) (Expr a)
     | Ap (Expr a) (Expr a)
     | Let a (Expr a) (Expr a)
@@ -21,8 +23,7 @@ data Expr a =
 
 instance Show a => Show (Expr a) where
   show (Var x) = show x
-  show (BoolConst b) = show b
-  show (IntConst i) = show i
+  show (Const c) = show c
   show (ABinary o x y) = printf "(%s %s %s)" (show x) (show o) (show y)
   show (Ap f x) = printf "(%s %s)" (show f) (show x)
   show (Let x v e) = printf "let %s = %s in\n%s" (show x) (show v) (show e)

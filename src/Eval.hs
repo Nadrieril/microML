@@ -40,8 +40,8 @@ type Env = M.Map String Val
 
 evalE :: Env -> Expr Name -> Val
 evalE env (Var x) = env M.! x
-evalE _ (BoolConst b) = VBool b
-evalE _ (IntConst i) = VInt i
+evalE _ (Const (B b)) = VBool b
+evalE _ (Const (I i)) = VInt i
 evalE env (ABinary o x y) = evalOp o (evalE env x) (evalE env y)
 evalE env (Let x v e) = evalE (M.insert x (evalE env v) env) e
 evalE env (LetR f v e) = evalE (M.insert f body env) e

@@ -42,7 +42,7 @@ operators = [ [neg]
             , [eq] ]
     where
         f c v = reservedOp c >> return v
-        neg = Prefix (f "-" (ABinary (BinOp "-") (IntConst 0)))
+        neg = Prefix (f "-" (ABinary (BinOp "-") (Const $ I 0)))
         g o = Infix (f o (ABinary (BinOp o))) AssocLeft
         mul = g "*"
         div = g "/"
@@ -89,8 +89,8 @@ lambda = do
     return $ Fun x e
 
 boolean :: Parser (Expr String)
-boolean = (reserved "true" >> return (BoolConst True))
-      <|> (reserved "false" >> return (BoolConst False))
+boolean = (reserved "true" >> return (Const $ B True))
+      <|> (reserved "false" >> return (Const $ B False))
 
 atom :: Parser (Expr String)
 atom =  parens expr
@@ -99,7 +99,7 @@ atom =  parens expr
     <|> ifthenelse
     <|> lambda
     <|> boolean
-    <|> IntConst <$> natural
+    <|> (Const . I) <$> natural
     <|> Var <$> ident
     <?> "atom"
 
