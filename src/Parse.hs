@@ -43,7 +43,7 @@ operators = [ [neg]
             , [eq] ]
     where
         f c v = reservedOp c >> return v
-        neg = Prefix (f "-" (AST.Infix "-" (AST.Const $ AST.I 0)))
+        neg = Prefix (f "-" (AST.Infix "-" (Const $ I 0)))
         g o = Infix (f o (AST.Infix o)) AssocLeft
         mul = g "*"
         div = g "/"
