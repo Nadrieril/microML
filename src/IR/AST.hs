@@ -9,7 +9,9 @@ instance Show Name where
   show (Name o) = o
 
 data Value = B Bool | I Integer
-    deriving (Show)
+instance Show Value where
+  show (B x) = show x
+  show (I x) = show x
 
 data Expr a =
       Var a
