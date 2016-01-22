@@ -11,6 +11,7 @@ import qualified Data.Map as M
 import Text.Printf (printf)
 import Control.Monad.State (State, get, put, modify, evalState)
 
+import qualified StdLib (stdLib)
 import AST.Expr (Expr(..), Name(..), Value(..))
 
 type Env e = M.Map Name (Val e)
@@ -19,7 +20,7 @@ data Val e =
     VInt Integer
   | VBool Bool
   | VFun (Env e) Name (e Name)
-  | VSysCall (Val e -> State (Env e) (Val e))
+  | VSysCall (Val e -> Eval e)
 
 type Eval e = State (Env e) (Val e)
 
@@ -31,31 +32,15 @@ instance Show (e Name) => Show (Val e) where
 
 
 stdLib :: Show (e Name) => Env e
-stdLib = M.fromList $ map f [
-      ("*", withInt (*)),
-      ("/", withInt div),
-      ("+", withInt (+)),
-      ("-", withInt (-)),
-      ("or", withBool (||)),
-      ("and", withBool (&&)),
-      ("==", eq)
-    ]
+stdLib = fmap f StdLib.stdLib
     where
-      withInt :: (Integer -> Integer -> Integer) -> Val e -> Val e -> Val e
-      withInt f (VInt x) (VInt y) = VInt $ f x y
-    --   withInt _ v _ = error $ printf "Error: attempting to evaluate %s as int" (show v)
-      withInt _ _ _ = error $ printf "Error: attempting to evaluate %s as int" "???"
-
-      withBool :: (Bool -> Bool -> Bool) -> Val e -> Val e -> Val e
-      withBool f (VBool x) (VBool y) = VBool $ f x y
-    --   withBool _ v _ = error $ printf "Error: attempting to evaluate %s as bool" (show v)
-      withBool _ _ _ = error $ printf "Error: attempting to evaluate %s as bool" "???"
-
-      eq (VInt x) (VInt y) = VBool (x==y)
-      eq (VBool x) (VBool y) = VBool (x==y)
-      eq x y = error $ printf "Error: %s and %s cannot be compared" (show x) (show y)
-
-      f (op, fop) = (Name op, VSysCall $ \v1 -> (return $ VSysCall $ \v2 -> return $ fop v1 v2))
+        tr (VInt i) = I i
+        tr (VBool b) = B b
+        tr v = error $ printf "Error: attempting to evaluate %s as value" (show v)
+        tr' (I i) = VInt i
+        tr' (B b) = VBool b
+        f fop = let fop' v1 v2 = tr' (fop (tr v1) (tr v2)) in
+            VSysCall $ \v1 -> (return $ VSysCall $ \v2 -> return $ fop' v1 v2)
 
 
 evalAp :: Val Expr -> Val Expr -> Eval Expr
