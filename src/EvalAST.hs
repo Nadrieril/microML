@@ -1,27 +1,29 @@
-{-# LANGUAGE RecursiveDo #-}
-module Eval where
+{-# LANGUAGE RecursiveDo, FlexibleContexts, UndecidableInstances #-}
+module EvalAST where
 import qualified Data.Map as M
 import Text.Printf (printf)
 import Control.Monad.State
 
 import IR.AST
 
-data Val =
+type Env e = M.Map Name (Val e)
+
+data Val e =
     VInt Integer
   | VBool Bool
-  | VFun Env Name (Expr Name)
-  | VSysCall (Val -> State Env Val)
+  | VFun (Env e) Name (e Name)
+  | VSysCall (Val e -> State (Env e) (Val e))
 
-instance Show Val where
+type Eval e = State (Env e) (Val e)
+
+instance Show (e Name) => Show (Val e) where
   show (VInt i) = printf "VInt %s" (show i)
   show (VBool b) = printf "VBool %s" (show b)
   show (VFun _ n e) = printf "VFun(\\%s -> %s)" (show n) (show e)
   show VSysCall{} = printf "VSysCall"
 
 
-type Env = M.Map Name Val
-
-stdLib :: Env
+stdLib :: Show (e Name) => Env e
 stdLib = M.fromList $ map f [
       ("*", withInt (*)),
       ("/", withInt div),
@@ -32,13 +34,15 @@ stdLib = M.fromList $ map f [
       ("==", eq)
     ]
     where
-      withInt :: (Integer -> Integer -> Integer) -> Val -> Val -> Val
+      withInt :: (Integer -> Integer -> Integer) -> Val e -> Val e -> Val e
       withInt f (VInt x) (VInt y) = VInt $ f x y
-      withInt _ v _ = error $ printf "Error: attempting to evaluate %s as int" (show v)
+    --   withInt _ v _ = error $ printf "Error: attempting to evaluate %s as int" (show v)
+      withInt _ _ _ = error $ printf "Error: attempting to evaluate %s as int" "???"
 
-      withBool :: (Bool -> Bool -> Bool) -> Val -> Val -> Val
+      withBool :: (Bool -> Bool -> Bool) -> Val e -> Val e -> Val e
       withBool f (VBool x) (VBool y) = VBool $ f x y
-      withBool _ v _ = error $ printf "Error: attempting to evaluate %s as bool" (show v)
+    --   withBool _ v _ = error $ printf "Error: attempting to evaluate %s as bool" (show v)
+      withBool _ _ _ = error $ printf "Error: attempting to evaluate %s as bool" "???"
 
       eq (VInt x) (VInt y) = VBool (x==y)
       eq (VBool x) (VBool y) = VBool (x==y)
@@ -47,7 +51,7 @@ stdLib = M.fromList $ map f [
       f (op, fop) = (Name op, VSysCall $ \v1 -> (return $ VSysCall $ \v2 -> return $ fop v1 v2))
 
 
-evalAp :: Val -> Val -> State Env Val
+evalAp :: Val Expr -> Val Expr -> Eval Expr
 evalAp (VFun env x v) y = do
     put (M.insert x y env)
     evalE v
@@ -55,7 +59,7 @@ evalAp (VSysCall f) y = f y
 evalAp v _ = error $ printf "Error: attempting to evaluate %s as function" (show v)
 
 
-evalE :: Expr Name -> State Env Val
+evalE :: Expr Name -> Eval Expr
 evalE (Var x) = (M.! x) <$> get
 evalE (Const (B b)) = return $ VBool b
 evalE (Const (I i)) = return $ VInt i
@@ -84,5 +88,5 @@ evalE (Ap f x) = do
     evalAp vf vx
 
 
-eval :: Expr Name -> Val
+eval :: Expr Name -> Val Expr
 eval e = evalState (evalE e) stdLib

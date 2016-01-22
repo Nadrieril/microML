@@ -1,7 +1,7 @@
 module Main where
 
 import Parse
-import Eval
+import EvalAST
 
 main :: IO ()
 main = do
