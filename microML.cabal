@@ -16,5 +16,6 @@ executable main
           base
         , parsec
         , containers
+        , mtl
 
     ghc-options: -Wall -fno-warn-missing-signatures -fno-warn-name-shadowing -fno-warn-unused-do-bind -O0
