@@ -2,9 +2,10 @@ module Main where
 
 import AST.Parse (parseML)
 import qualified AST.Eval (eval)
-import qualified AFT.Eval (eval)
 import AFT.Expr (fromAST)
+import qualified AFT.Eval (eval)
 import DeBruijn.Expr (deBruijn)
+import qualified DeBruijn.Eval (eval)
 
 main :: IO ()
 main = do
@@ -25,3 +26,4 @@ main = do
 
           let dBjn = deBruijn aft
           print dBjn
+          putStrLn $ "-> " ++ show (DeBruijn.Eval.eval dBjn)
