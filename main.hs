@@ -1,8 +1,8 @@
 module Main where
 
-import Parse
-import qualified EvalAST
-import qualified EvalAFT
+import Parse (parseML)
+import qualified EvalAST (eval)
+import qualified EvalAFT (eval)
 import IR.AFT (fromAST)
 
 main :: IO ()

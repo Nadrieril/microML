@@ -1,10 +1,14 @@
 {-# LANGUAGE DeriveFunctor #-}
-module IR.AST where
+module IR.AST
+    ( Name(..)
+    , Value(..)
+    , Expr(..)
+    ) where
+
 import Text.Printf (printf)
 
 newtype Name = Name String
     deriving (Eq, Ord)
-
 instance Show Name where
   show (Name o) = o
 

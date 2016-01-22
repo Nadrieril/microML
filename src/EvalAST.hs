@@ -1,10 +1,17 @@
 {-# LANGUAGE RecursiveDo, FlexibleContexts, UndecidableInstances #-}
-module EvalAST where
+module EvalAST
+    ( Env
+    , Val(..)
+    , Eval
+    , stdLib
+    , eval
+    ) where
+
 import qualified Data.Map as M
 import Text.Printf (printf)
-import Control.Monad.State
+import Control.Monad.State (State, get, put, modify, evalState)
 
-import IR.AST
+import IR.AST (Expr(..), Name(..), Value(..))
 
 type Env e = M.Map Name (Val e)
 

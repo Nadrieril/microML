@@ -1,5 +1,11 @@
 {-# LANGUAGE DeriveFunctor #-}
-module IR.AFT where
+module IR.AFT
+    ( AST.Name(..)
+    , AST.Value(..)
+    , Expr(..)
+    , fromAST
+    ) where
+
 import Text.Printf (printf)
 
 import IR.AST (Value)

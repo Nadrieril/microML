@@ -1,11 +1,13 @@
 {-# LANGUAGE RecursiveDo #-}
-module EvalAFT where
+module EvalAFT
+    ( eval
+    ) where
+
 import qualified Data.Map as M
 import Text.Printf (printf)
-import Control.Monad.State
+import Control.Monad.State (get, put, modify, evalState)
 
-import IR.AST (Name(..), Value(..))
-import IR.AFT
+import IR.AFT (Expr(..), Name(..), Value(..))
 import EvalAST (Eval, Val(..), stdLib)
 
 
