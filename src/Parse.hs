@@ -42,14 +42,15 @@ operators = [ [neg]
             , [eq] ]
     where
         f c v = reservedOp c >> return v
-        neg = Prefix (f "-"   Neg                )
-        mul = Infix  (f "*"   (ABinary Multiply) ) AssocLeft
-        div = Infix  (f "/"   (ABinary Divide)   ) AssocLeft
-        add = Infix  (f "+"   (ABinary Add)      ) AssocLeft
-        sub = Infix  (f "-"   (ABinary Subtract) ) AssocLeft
-        or  = Infix  (f "or"  (ABinary Or)       ) AssocLeft
-        and = Infix  (f "and" (ABinary And)      ) AssocLeft
-        eq =  Infix  (f "=="  (ABinary Eq)       ) AssocLeft
+        neg = Prefix (f "-" Neg)
+        g o = Infix (f o (ABinary (BinOp o))) AssocLeft
+        mul = g "*"
+        div = g "/"
+        add = g "+"
+        sub = g "-"
+        or  = g "or"
+        and = g "and"
+        eq =  g "=="
 
 
 letin :: Bool -> Parser (Expr String)

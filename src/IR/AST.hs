@@ -1,16 +1,10 @@
 module IR.AST where
 import Text.Printf (printf)
 
-data BinOp = Multiply | Divide | Add | Subtract | Or | And | Eq
+newtype BinOp = BinOp String
 
 instance Show BinOp where
-  show Multiply = "*"
-  show Divide = "/"
-  show Add = "+"
-  show Subtract = "-"
-  show Or = "or"
-  show And = "and"
-  show Eq = "=="
+  show (BinOp o) = o
 
 type Name = String
 
