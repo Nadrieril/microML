@@ -1,10 +1,17 @@
-module DeBruijn.Expr where
+module DeBruijn.Expr
+    ( Name(..)
+    , Value(..)
+    , Expr(..)
+    , Id
+    , deBruijn
+    ) where
 
 import Text.Printf (printf)
 import Data.List (elemIndex)
-import Control.Monad.State (State, put, get, modify, evalState)
+import Control.Monad.State (State, get, evalState)
 -- import System.IO.Unsafe (unsafePerformIO)
 
+import Utils (Stack, withPush)
 import AFT.Expr (Name, Value)
 import qualified AFT.Expr as AFT
 
@@ -30,21 +37,7 @@ instance Show Expr where
   show (Ap f x) = printf "(%s %s)" (show f) (show x)
   show (If b e1 e2) = printf "if %s then %s else %s" (show b) (show e1) (show e2)
 
-type Stack = [Name]
-
-push :: a -> State [a] ()
-push x = modify (x:)
-
-pop :: State [a] a
-pop = do
-    (x:q) <- get
-    put q
-    return x
-
-withPush :: a -> State [a] b -> State [a] b
-withPush x m = push x >> m >>= ((pop >>) . return)
-
-deBruijnE :: AFT.Expr Name -> State Stack Expr
+deBruijnE :: AFT.Expr Name -> State (Stack Name) Expr
 deBruijnE (AFT.Var x) = do
     s <- get
     return $ case elemIndex x s of
