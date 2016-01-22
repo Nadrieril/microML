@@ -12,6 +12,7 @@ executable main
           IR.AST
           EvalAST
           IR.AFT
+          EvalAFT
 
     build-depends:
           base
