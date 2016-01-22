@@ -4,6 +4,7 @@ import Parse (parseML)
 import qualified EvalAST (eval)
 import qualified EvalAFT (eval)
 import IR.AFT (fromAST)
+import IR.DeBruijn (deBruijn)
 
 main :: IO ()
 main = do
@@ -16,6 +17,11 @@ main = do
           print ast
           putStrLn $ "-> " ++ show (EvalAST.eval ast)
           putStrLn ""
+
           let aft = fromAST ast
           print aft
           putStrLn $ "-> " ++ show (EvalAFT.eval aft)
+          putStrLn ""
+
+          let dBjn = deBruijn aft
+          print dBjn
