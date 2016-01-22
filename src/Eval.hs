@@ -4,8 +4,7 @@ import Text.Printf (printf)
 
 import IR.AST
 
-type Var = String
-data Val = VInt Integer | VBool Bool | VFun Env Var (Expr Name)
+data Val = VInt Integer | VBool Bool | VFun Env Name (Expr Name)
     deriving (Show)
 
 
@@ -17,32 +16,32 @@ withBool :: (Bool -> Bool -> Bool) -> Val -> Val -> Val
 withBool f (VBool x) (VBool y) = VBool $ f x y
 withBool _ v _ = error $ printf "Error: attempting to evaluate %s as bool" (show v)
 
-evalOp :: BinOp -> Val -> Val -> Val
-evalOp (BinOp "*") = withInt (*)
-evalOp (BinOp "/") = withInt div
-evalOp (BinOp "+") = withInt (+)
-evalOp (BinOp "-") = withInt (-)
-evalOp (BinOp "or") = withBool (||)
-evalOp (BinOp "and") = withBool (&&)
-evalOp (BinOp "==") = f
+evalOp :: Name -> Val -> Val -> Val
+evalOp (Name "*") = withInt (*)
+evalOp (Name "/") = withInt div
+evalOp (Name "+") = withInt (+)
+evalOp (Name "-") = withInt (-)
+evalOp (Name "or") = withBool (||)
+evalOp (Name "and") = withBool (&&)
+evalOp (Name "==") = f
     where
       f (VInt x) (VInt y) = VBool (x==y)
       f (VBool x) (VBool y) = VBool (x==y)
       f x y = error $ printf "Error: %s and %s cannot be compared" (show x) (show y)
-evalOp (BinOp o) = error $ printf "Error: unknown operator %s" (show o)
+evalOp (Name o) = error $ printf "Error: unknown operator %s" (show o)
 
 ap :: Val -> Val -> Val
 ap (VFun env x v) y = evalE (M.insert x y env) v
 ap v _ = error $ printf "Error: attempting to evaluate %s as function" (show v)
 
 
-type Env = M.Map String Val
+type Env = M.Map Name Val
 
 evalE :: Env -> Expr Name -> Val
 evalE env (Var x) = env M.! x
 evalE _ (Const (B b)) = VBool b
 evalE _ (Const (I i)) = VInt i
-evalE env (ABinary o x y) = evalOp o (evalE env x) (evalE env y)
+evalE env (Infix o x y) = evalOp o (evalE env x) (evalE env y)
 evalE env (Let x v e) = evalE (M.insert x (evalE env v) env) e
 evalE env (LetR f v e) = evalE (M.insert f body env) e
     where body = evalE (M.insert f body env) v
@@ -53,6 +52,7 @@ evalE env (If b e1 e2) =
         v -> error $ printf "Error: attempting to evaluate %s as bool" (show v)
 evalE env (Fun x e) = VFun env x e
 evalE env (Ap f x) = ap (evalE env f) (evalE env x)
+
 
 eval :: Expr Name -> Val
 eval = evalE M.empty

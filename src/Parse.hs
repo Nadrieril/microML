@@ -7,7 +7,8 @@ import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Language
 import qualified Text.ParserCombinators.Parsec.Token as Token
 
-import IR.AST
+import IR.AST hiding (Infix)
+import qualified IR.AST as AST
 
 -----------------------------------------------------------------------------
 languageDef =
@@ -42,8 +43,8 @@ operators = [ [neg]
             , [eq] ]
     where
         f c v = reservedOp c >> return v
-        neg = Prefix (f "-" (ABinary (BinOp "-") (Const $ I 0)))
-        g o = Infix (f o (ABinary (BinOp o))) AssocLeft
+        neg = Prefix (f "-" (AST.Infix "-" (AST.Const $ AST.I 0)))
+        g o = Infix (f o (AST.Infix o)) AssocLeft
         mul = g "*"
         div = g "/"
         add = g "+"
@@ -111,5 +112,5 @@ expr = buildExpressionParser operators funAp
             <?> "expression"
 
 
-parseML :: String -> Either ParseError (Expr String)
-parseML = parse (whiteSpace >> expr) "(unknown)"
+parseML :: String -> Either ParseError (Expr Name)
+parseML s = fmap Name <$> parse (whiteSpace >> expr) "(unknown)" s
