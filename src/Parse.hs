@@ -42,7 +42,7 @@ operators = [ [neg]
             , [eq] ]
     where
         f c v = reservedOp c >> return v
-        neg = Prefix (f "-" Neg)
+        neg = Prefix (f "-" (ABinary (BinOp "-") (IntConst 0)))
         g o = Infix (f o (ABinary (BinOp o))) AssocLeft
         mul = g "*"
         div = g "/"
