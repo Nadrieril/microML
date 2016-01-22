@@ -33,7 +33,7 @@ natural    = Token.natural    lexer -- parses an natural
 whiteSpace = Token.whiteSpace lexer -- parses whitespace
 
 
-operators :: forall st. [[Operator Char st Expr]]
+operators :: forall st. [[Operator Char st (Expr String)]]
 operators = [ [neg]
             , [mul, div]
             , [add, sub]
@@ -52,7 +52,7 @@ operators = [ [neg]
         eq =  Infix  (f "=="  (ABinary Eq)       ) AssocLeft
 
 
-letin :: Bool -> Parser Expr
+letin :: Bool -> Parser (Expr String)
 letin b = do
     reserved "let"
     when b $ reserved "rec"
@@ -63,13 +63,13 @@ letin b = do
     e <- expr
     return $ (if b then LetR else Let) x v e
 
-letnonrec :: Parser Expr
+letnonrec :: Parser (Expr String)
 letnonrec = letin False
-letrec :: Parser Expr
+letrec :: Parser (Expr String)
 letrec = letin True
 
 
-ifthenelse :: Parser Expr
+ifthenelse :: Parser (Expr String)
 ifthenelse = do
     reserved "if"
     b <- expr
@@ -79,7 +79,7 @@ ifthenelse = do
     e2 <- expr
     return $ If b e1 e2
 
-lambda :: Parser Expr
+lambda :: Parser (Expr String)
 lambda = do
     reserved "fun"
     x <- ident
@@ -87,11 +87,11 @@ lambda = do
     e <- expr
     return $ Fun x e
 
-boolean :: Parser Expr
+boolean :: Parser (Expr String)
 boolean = (reserved "true" >> return (BoolConst True))
       <|> (reserved "false" >> return (BoolConst False))
 
-atom :: Parser Expr
+atom :: Parser (Expr String)
 atom =  parens expr
     <|> try letnonrec
     <|> letrec
@@ -102,13 +102,13 @@ atom =  parens expr
     <|> Var <$> ident
     <?> "atom"
 
-funAp :: Parser Expr
+funAp :: Parser (Expr String)
 funAp = foldl1 Ap <$> many1 atom
 
-expr :: Parser Expr
+expr :: Parser (Expr String)
 expr = buildExpressionParser operators funAp
             <?> "expression"
 
 
-parseML :: String -> Either ParseError Expr
+parseML :: String -> Either ParseError (Expr String)
 parseML = parse (whiteSpace >> expr) "(unknown)"

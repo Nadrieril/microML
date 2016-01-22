@@ -5,7 +5,7 @@ import Text.Printf (printf)
 import IR.AST
 
 type Var = String
-data Val = VInt Integer | VBool Bool | VFun Env Var Expr
+data Val = VInt Integer | VBool Bool | VFun Env Var (Expr Name)
     deriving (Show)
 
 
@@ -37,7 +37,7 @@ ap v _ = error $ printf "Error: attempting to evaluate %s as function" (show v)
 
 type Env = M.Map String Val
 
-evalE :: Env -> Expr -> Val
+evalE :: Env -> Expr Name -> Val
 evalE env (Var x) = env M.! x
 evalE _ (BoolConst b) = VBool b
 evalE _ (IntConst i) = VInt i
@@ -54,5 +54,5 @@ evalE env (If b e1 e2) =
 evalE env (Fun x e) = VFun env x e
 evalE env (Ap f x) = ap (evalE env f) (evalE env x)
 
-eval :: Expr -> Val
+eval :: Expr Name -> Val
 eval = evalE M.empty
