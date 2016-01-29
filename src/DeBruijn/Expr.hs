@@ -8,10 +8,11 @@ module DeBruijn.Expr
 
 import Text.Printf (printf)
 import Data.List (elemIndex)
-import Control.Monad.State (State, get, evalState)
+import Data.Char (chr, ord)
+import Control.Monad.State (State, get, gets, modify, evalState)
 -- import System.IO.Unsafe (unsafePerformIO)
 
-import Utils (Stack, withPush)
+import Utils (Stack, withPush, local)
 import AFT.Expr (Name, Value)
 import qualified AFT.Expr as AFT
 
@@ -30,14 +31,29 @@ data Expr =
     | If Expr Expr Expr
 
 instance Show Expr where
-  show (Var i) = printf "#%d" i
-  show (Global x) = show x
-  show (Const c) = show c
-  show (Fun e) = printf "(\\%s)" (show e)
-  show (Fix e) = printf "fix(\\%s)" (show e)
-  show (Ap f x) = printf "(%s %s)" (show f) (show x)
-  show (Let v e) = printf "let %s in\n%s" (show v) (show e)
-  show (If b e1 e2) = printf "if %s then %s else %s" (show b) (show e1) (show e2)
+  show e =  evalState (showE e) (-1)
+
+showVar :: Int -> String
+-- showVar = printf "#%d"
+showVar i = [chr (i + ord 'a')]
+
+showE :: Expr -> State Int String
+showE (Var i) = showVar <$> gets (\j -> j-i)
+showE (Global x) = return $ show x
+showE (Const c) = return $ show c
+showE (Fun e) = local $ do
+        modify (+ 1)
+        printf "(\\%s -> %s)" <$> gets showVar <*> showE e
+showE (Fix e) = local $ do
+        modify (+ 1)
+        printf "fix(\\%s -> %s)" <$> gets showVar <*> showE e
+showE (Let v e) = local $ do
+        modify (+ 1)
+        printf "let %s = %s in\n%s" <$> gets showVar <*> showE v <*> showE e
+showE (Ap f x) = printf "(%s %s)" <$> showE f <*> showE x
+showE (If b e1 e2) = printf "if %s then %s else %s" <$> showE b <*> showE e1 <*> showE e2
+
+
 
 deBruijnE :: AFT.Expr Name -> State (Stack Name) Expr
 deBruijnE (AFT.Var x) = do

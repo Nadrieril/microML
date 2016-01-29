@@ -17,7 +17,7 @@ pop = do
 withPush :: Monad m => a -> StateT (Stack a) m b -> StateT (Stack a) m b
 withPush x m = local $ push x >> m
 
-local :: Monad m => StateT (Stack a) m b -> StateT (Stack a) m b
+local :: Monad m => StateT a m b -> StateT a m b
 local m = do
     old <- get
     ret <- m
