@@ -12,6 +12,7 @@ import Text.Printf (printf)
 import Control.Monad.State (State, get, put, modify, evalState)
 
 import qualified StdLib (stdLib)
+import Utils (local)
 import AST.Expr (Expr(..), Name(..), Value(..))
 
 type Env e = M.Map Name (Val e)
@@ -44,9 +45,10 @@ stdLib = fmap f StdLib.stdLib
 
 
 evalAp :: Val Expr -> Val Expr -> Eval Expr
-evalAp (VFun env x v) y = do
-    put (M.insert x y env)
-    evalE v
+evalAp (VFun env x v) y =
+    local $ do
+        put (M.insert x y env)
+        evalE v
 evalAp (VSysCall f) y = f y
 evalAp v _ = error $ printf "Error: attempting to evaluate %s as function" (show v)
 
@@ -58,13 +60,15 @@ evalE (Const (I i)) = return $ VInt i
 evalE (Infix o x y) = evalE $ Ap (Ap (Var o) x) y
 evalE (Let x v e) = do
     vv <- evalE v
-    modify (M.insert x vv)
-    evalE e
-evalE (LetR f v e) = do
-    rec
-        modify (M.insert f body)
-        body <- evalE v
-    evalE e
+    local $ do
+        modify (M.insert x vv)
+        evalE e
+evalE (LetR f v e) =
+    local $ do
+        rec
+            modify (M.insert f body)
+            body <- evalE v
+        evalE e
 evalE (If b e1 e2) = do
     vb <- evalE b
     case vb of

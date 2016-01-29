@@ -11,12 +11,13 @@ import qualified Data.Map as M
 import Text.Printf (printf)
 import Control.Monad.State (get, put, modify, evalState)
 
+import Utils (local)
 import AFT.Expr (Expr(..), Name(..), Value(..))
 import AST.Eval (Eval, Env, Val(..), stdLib)
 
 
 evalAp :: Val Expr -> Val Expr -> Eval Expr
-evalAp (VFun env x v) y = do
+evalAp (VFun env x v) y = local $ do
     put (M.insert x y env)
     evalE v
 evalAp (VSysCall f) y = f y
@@ -36,7 +37,7 @@ evalE (If b e1 e2) = do
 evalE (Fun x e) = do
     env <- get
     return $ VFun env x e
-evalE (Fix f e) = do
+evalE (Fix f e) = local $ do
     rec
         modify (M.insert f body)
         body <- evalE e
@@ -47,8 +48,9 @@ evalE (Ap f x) = do
     evalAp vf vx
 evalE (Let x v e) = do
     vv <- evalE v
-    modify (M.insert x vv)
-    evalE e
+    local $ do
+        modify (M.insert x vv)
+        evalE e
 
 eval :: Expr Name -> Val Expr
 eval e = evalState (evalE e) stdLib
