@@ -1,7 +1,9 @@
-{-# LANGUAGE TypeFamilies, FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies, FlexibleInstances, ScopedTypeVariables #-}
 module Main where
 
 import Control.Monad (forM_, when)
+-- import Control.Exception (throwIO, IOException)
+import Control.Exception
 import System.Directory (getDirectoryContents, doesFileExist)
 
 import qualified AST.Expr (Expr, Name)
@@ -28,26 +30,26 @@ instance Evaluable DeBruijn.Expr.Expr where
     eval = show . DeBruijn.Eval.eval
 
 testCode :: Int -> String -> IO ()
-testCode stage code = do
-    let res = parseML code
-    case res of
+testCode stage code =
+    case parseML code of
       Left err -> putStrLn $ "Error: " ++ show err
+    --   Left err -> fail (show err)
       Right ast -> do
-        when (stage == 0 || stage == 1) $
-            printStage ast
+        printStage 1 stage ast
 
         let aft = fromAST ast
-        when (stage == 0 || stage == 2) $
-            printStage aft
+        printStage 2 stage aft
 
         let dBjn = deBruijn aft
-        when (stage == 0 || stage == 3) $
-            printStage dBjn
+        printStage 3 stage dBjn
 
-    where printStage tree = do
-            print tree
-            putStrLn $ "-> " ++ eval tree
-            putStrLn ""
+    where printStage i stage tree =
+            when (stage == 0 || stage == i) $ do
+                print tree
+                catch
+                    (putStrLn $ "-> " ++ eval tree)
+                    (\(err::SomeException) -> putStrLn $ "Error: " ++ show err)
+                putStrLn ""
 
 
 
