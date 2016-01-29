@@ -45,7 +45,10 @@ evalE (Ap f x) = do
     vf <- evalE f
     vx <- evalE x
     evalAp vf vx
-
+evalE (Let x v e) = do
+    vv <- evalE v
+    modify (M.insert x vv)
+    evalE e
 
 eval :: Expr Name -> Val Expr
 eval e = evalState (evalE e) stdLib

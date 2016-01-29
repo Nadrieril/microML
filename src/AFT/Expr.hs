@@ -17,6 +17,7 @@ data Expr a =
     | Fun a (Expr a)
     | Fix a (Expr a)
     | Ap (Expr a) (Expr a)
+    | Let a (Expr a) (Expr a)
     | If (Expr a) (Expr a) (Expr a)
     deriving (Functor)
 
@@ -26,6 +27,7 @@ instance Show a => Show (Expr a) where
   show (Fun x e) = printf "(\\%s -> %s)" (show x) (show e)
   show (Fix f e) = printf "fix(\\%s -> %s)" (show f) (show e)
   show (Ap f x) = printf "(%s %s)" (show f) (show x)
+  show (Let x v e) = printf "let %s = %s in\n%s" (show x) (show v) (show e)
   show (If b e1 e2) = printf "if %s then %s else %s" (show b) (show e1) (show e2)
 
 fromAST :: AST.Expr a -> Expr a
@@ -35,5 +37,5 @@ fromAST (AST.Fun n e) = Fun n (fromAST e)
 fromAST (AST.Ap f x) = Ap (fromAST f) (fromAST x)
 fromAST (AST.If b e1 e2) = If (fromAST b) (fromAST e1) (fromAST e2)
 fromAST (AST.Infix o e1 e2) = Ap (Ap (Var o) (fromAST e1)) (fromAST e2)
-fromAST (AST.Let x v e) = Ap (Fun x (fromAST e)) (fromAST v)
-fromAST (AST.LetR f v e) = Ap (Fun f (fromAST e)) (Fix f (fromAST v))
+fromAST (AST.Let x v e) = Let x (fromAST v) (fromAST e)
+fromAST (AST.LetR f v e) = Let f (Fix f (fromAST v)) (fromAST e)

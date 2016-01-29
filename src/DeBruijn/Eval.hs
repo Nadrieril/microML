@@ -81,6 +81,11 @@ evalE (Ap f x) = do
     vf <- evalE f
     vx <- evalE x
     evalAp vf vx
+evalE (Let v e) = do
+    vv <- evalE v
+    local $ do
+        push vv
+        evalE e
 
 eval :: Expr -> Val Expr
 eval e = runReader (evalStateT (evalE e) []) globals

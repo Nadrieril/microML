@@ -26,6 +26,7 @@ data Expr =
     | Fun Expr
     | Fix Expr
     | Ap Expr Expr
+    | Let Expr Expr
     | If Expr Expr Expr
 
 instance Show Expr where
@@ -35,6 +36,7 @@ instance Show Expr where
   show (Fun e) = printf "(\\%s)" (show e)
   show (Fix e) = printf "fix(\\%s)" (show e)
   show (Ap f x) = printf "(%s %s)" (show f) (show x)
+  show (Let v e) = printf "let %s in\n%s" (show v) (show e)
   show (If b e1 e2) = printf "if %s then %s else %s" (show b) (show e1) (show e2)
 
 deBruijnE :: AFT.Expr Name -> State (Stack Name) Expr
@@ -48,6 +50,7 @@ deBruijnE (AFT.If b e1 e2) = If <$> deBruijnE b <*> deBruijnE e1 <*> deBruijnE e
 deBruijnE (AFT.Ap f x) = Ap <$> deBruijnE f <*> deBruijnE x
 deBruijnE (AFT.Fun x e) = withPush x (Fun <$> deBruijnE e)
 deBruijnE (AFT.Fix f e) = withPush f (Fix <$> deBruijnE e)
+deBruijnE (AFT.Let x v e) = Let <$> deBruijnE v <*> withPush x (deBruijnE e)
 
 deBruijn :: AFT.Expr Name -> Expr
 deBruijn e = evalState (deBruijnE e) []
