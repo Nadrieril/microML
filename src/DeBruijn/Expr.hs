@@ -29,7 +29,7 @@ data Expr =
     | If Expr Expr Expr
 
 instance Show Expr where
-  show (Var i) = printf "'%d" i
+  show (Var i) = printf "#%d" i
   show (Global x) = show x
   show (Const c) = show c
   show (Fun e) = printf "(\\%s)" (show e)
