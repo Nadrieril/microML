@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, FlexibleContexts, ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes, FlexibleContexts, ScopedTypeVariables, LambdaCase #-}
 module Typed.Infer
     ( inferType
     ) where
@@ -47,9 +47,10 @@ find t = find' t
 
 findP :: Type -> Env r Type
 findP (Mono t) = Mono <$> find t
-findP (Bound i t) = do
-    TVar i <- find (TVar i)
-    Bound i <$> findP t
+findP (Bound i t) =
+    find (TVar i) >>= \case
+        TVar i' -> Bound i' <$> findP t
+        _ -> findP t
 
 
 getType :: VId -> Env r Type
