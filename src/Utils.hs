@@ -1,7 +1,8 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Utils where
 
-import Control.Monad.State.Class (MonadState)
-import Control.Monad.State (StateT, put, get, modify)
+import Control.Monad.State.Class (MonadState, put, get, modify)
+import Control.Monad.State (StateT)
 import System.IO.Unsafe (unsafePerformIO)
 
 trace x y = unsafePerformIO (print x >> return y)
@@ -9,10 +10,10 @@ trace x y = unsafePerformIO (print x >> return y)
 
 type Stack a = [a]
 
-push :: Monad m => a -> StateT (Stack a) m ()
+push :: MonadState (Stack a) m => a -> m ()
 push x = modify (x:)
 
-pop :: Monad m => StateT (Stack a) m a
+pop :: MonadState (Stack a) m => m a
 pop = do
     (x:q) <- get
     put q

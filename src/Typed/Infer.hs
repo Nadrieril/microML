@@ -119,23 +119,23 @@ typeE (DeBruijn.Ap f x) = do
     unify tf (tx :-> t)
     return $ TExpr (Mono t) (Ap f x)
 
-typeE (DeBruijn.Fun e) = do
+typeE (DeBruijn.Fun n e) = do
     t <- freshV
     e@(TExpr (Mono t') _) <-
         localEnv $ do
             push (Mono t)
             typeE e
-    return $ TExpr (Mono $ t :-> t') (Fun e)
+    return $ TExpr (Mono $ t :-> t') (Fun n e)
 
-typeE (DeBruijn.Fix e) = do
+typeE (DeBruijn.Fix n e) = do
     t <- freshV
     e'@(TExpr (Mono te) _) <- localEnv $ do
         push (Mono $ t :-> t)
         typeE e
     unify (t :-> t) te
-    return $ TExpr (Mono (t :-> t)) (Fix e')
+    return $ TExpr (Mono (t :-> t)) (Fix n e')
 
-typeE (DeBruijn.Let v e) = do
+typeE (DeBruijn.Let n v e) = do
     TExpr t v <- typeE v
     t <- findP t
     t' <- bind t
@@ -143,7 +143,7 @@ typeE (DeBruijn.Let v e) = do
         localEnv $ do
             push t'
             typeE e
-    return $ TExpr t'' (Let (TExpr t v) e)
+    return $ TExpr t'' (Let n (TExpr t v) e)
 
 inferType :: DeBruijn.Expr -> Expr Type
 inferType e = run $

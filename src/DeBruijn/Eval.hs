@@ -68,24 +68,24 @@ evalE (If b e1 e2) = do
         VBool True -> evalE e1
         VBool False -> evalE e2
         v -> error $ printf "Error: attempting to evaluate %s as bool" (show v)
-evalE (Fun e) = do
+evalE (Fun _ e) = do
     stk <- get
     return $ VFun stk e
-evalE (Fix e) =
+evalE (Fix _ e) =
     local $ do
         rec
             push body
             body <- evalE e
         return body
-evalE (Ap f x) = do
-    vf <- evalE f
-    vx <- evalE x
-    evalAp vf vx
-evalE (Let v e) = do
+evalE (Let _ v e) = do
     vv <- evalE v
     local $ do
         push vv
         evalE e
+evalE (Ap f x) = do
+    vf <- evalE f
+    vx <- evalE x
+    evalAp vf vx
 
 eval :: Expr -> Val Expr
 eval e = runReader (evalStateT (evalE e) []) globals
