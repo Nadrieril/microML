@@ -1,5 +1,6 @@
 module Utils where
 
+import Control.Monad.State.Class (MonadState)
 import Control.Monad.State (StateT, put, get, modify)
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -20,7 +21,7 @@ pop = do
 withPush :: Monad m => a -> StateT (Stack a) m b -> StateT (Stack a) m b
 withPush x m = local $ push x >> m
 
-local :: Monad m => StateT a m b -> StateT a m b
+local :: MonadState s m => m b -> m b
 local m = do
     old <- get
     ret <- m

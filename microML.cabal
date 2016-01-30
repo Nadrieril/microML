@@ -15,6 +15,7 @@ executable main
           AFT.Eval
           DeBruijn.Expr
           DeBruijn.Eval
+          Typed.Expr
           Typed.Type
           Typed.UnionFind
           StdLib

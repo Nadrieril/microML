@@ -32,7 +32,6 @@ instance Show Expr where
   show e =  evalState (showE e) (-1)
 
 showVar :: Int -> String
--- showVar = printf "#%d"
 showVar i = [chr (i + ord 'a')]
 
 showE :: Expr -> State Int String
