@@ -126,7 +126,13 @@ typeE (DeBruijn.Fun e) = do
             typeE e
     return $ TExpr (Mono $ t :-> t') (Fun e)
 
-typeE (DeBruijn.Fix _) = error "Cannot type recursive definition yet"
+typeE (DeBruijn.Fix e) = do
+    t <- freshV
+    e'@(TExpr (Mono te) _) <- localEnv $ do
+        push (Mono $ t :-> t)
+        typeE e
+    unify (t :-> t) te
+    return $ TExpr (Mono (t :-> t)) (Fix e')
 
 typeE (DeBruijn.Let v e) = do
     TExpr t v <- typeE v
