@@ -10,13 +10,11 @@ import Text.Printf (printf)
 import Data.List (elemIndex)
 import Data.Char (chr, ord)
 import Control.Monad.State (State, get, gets, modify, evalState)
--- import System.IO.Unsafe (unsafePerformIO)
 
 import Utils (Stack, withPush, local)
 import AFT.Expr (Name, Value)
 import qualified AFT.Expr as AFT
 
--- trace x y = unsafePerformIO (print x >> return y)
 
 type Id = Int
 

@@ -1,6 +1,9 @@
 module Utils where
 
 import Control.Monad.State (StateT, put, get, modify)
+import System.IO.Unsafe (unsafePerformIO)
+
+trace x y = unsafePerformIO (print x >> return y)
 
 
 type Stack a = [a]
