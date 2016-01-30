@@ -18,7 +18,7 @@ import DeBruijn.Expr (deBruijn)
 import qualified DeBruijn.Expr (Expr)
 import qualified DeBruijn.Eval (eval)
 
-import Typed.Expr (inferType)
+import Typed.Infer (inferType)
 import qualified Typed.Expr (Expr)
 import qualified Typed.Type (Type)
 
@@ -33,7 +33,6 @@ instance Evaluable (AFT.Expr.Expr AFT.Expr.Name) where
 instance Evaluable DeBruijn.Expr.Expr where
     eval = show . DeBruijn.Eval.eval
 instance Evaluable (Typed.Expr.Expr Typed.Type.Type) where
-    -- eval = show . Typed.Eval.inferType
     eval = return "<no evaluation>"
 
 testCode :: Int -> String -> IO ()
