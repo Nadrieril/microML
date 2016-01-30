@@ -98,9 +98,10 @@ typeE (DeBruijn.Var x) = do
     s <- inst t
     return $ TExpr (Mono s) (Var x)
 
-typeE (DeBruijn.Global x) =
-    let t = stdLibTypes M.! x in
-    return $ TExpr t (Global x)
+typeE (DeBruijn.Global x) = do
+    let t = stdLibTypes M.! x
+    s <- inst t
+    return $ TExpr (Mono s) (Global x)
 
 typeE (DeBruijn.If b e1 e2) = do
     b@(TExpr (Mono tb) _) <- typeE b
