@@ -91,7 +91,11 @@ typeof :: Value -> TConst
 typeof (B _) = TBool
 typeof (I _) = TInt
 
-typeE :: DeBruijn.Expr -> Env r (Expr Type)
+
+typeAE :: DeBruijn.Expr -> Env r (Expr Type)
+typeAE = typeE . DeBruijn.runIdentity
+
+typeE :: DeBruijn.AbsExpr DeBruijn.Identity -> Env r (Expr Type)
 typeE (DeBruijn.Const c) = return $ TExpr (Mono $ TConst $ typeof c) (Const c)
 
 typeE (DeBruijn.Var x) = do
@@ -105,16 +109,16 @@ typeE (DeBruijn.Global x) = do
     return $ TExpr (Mono s) (Global x)
 
 typeE (DeBruijn.If b e1 e2) = do
-    b@(TExpr (Mono tb) _) <- typeE b
+    b@(TExpr (Mono tb) _) <- typeAE b
     unify tb (TConst TBool)
-    e1@(TExpr (Mono t1) _) <- typeE e1
-    e2@(TExpr (Mono t2) _) <- typeE e2
+    e1@(TExpr (Mono t1) _) <- typeAE e1
+    e2@(TExpr (Mono t2) _) <- typeAE e2
     unify t1 t2
     return $ TExpr (Mono t1) (If b e1 e2)
 
 typeE (DeBruijn.Ap f x) = do
-    f@(TExpr (Mono tf) _) <- typeE f
-    x@(TExpr (Mono tx) _) <- typeE x
+    f@(TExpr (Mono tf) _) <- typeAE f
+    x@(TExpr (Mono tx) _) <- typeAE x
     t <- freshV
     unify tf (tx :-> t)
     return $ TExpr (Mono t) (Ap f x)
@@ -124,25 +128,25 @@ typeE (DeBruijn.Fun n e) = do
     e@(TExpr (Mono t') _) <-
         localEnv $ do
             push (Mono t)
-            typeE e
+            typeAE e
     return $ TExpr (Mono $ t :-> t') (Fun n e)
 
 typeE (DeBruijn.Fix n e) = do
     t <- freshV
     e'@(TExpr (Mono te) _) <- localEnv $ do
         push (Mono $ t :-> t)
-        typeE e
+        typeAE e
     unify (t :-> t) te
     return $ TExpr (Mono (t :-> t)) (Fix n e')
 
 typeE (DeBruijn.Let n v e) = do
-    TExpr t v <- typeE v
+    TExpr t v <- typeAE v
     t <- findP t
     t' <- bind t
     e@(TExpr t'' _) <-
         localEnv $ do
             push t'
-            typeE e
+            typeAE e
     return $ TExpr t'' (Let n (TExpr t v) e)
 
 inferType :: DeBruijn.Expr -> Expr Type
@@ -150,7 +154,7 @@ inferType e = run $
     evalState (0 :: Int) $
     evalState ([] :: Stack Type) $
     evalState (UF.empty :: UF.UnionFind MonoType) $ do
-        TExpr t e <- typeE e
+        TExpr t e <- typeAE e
         t <- bind t
         let e' = TExpr t e
         (uf :: UF.UnionFind MonoType) <- get

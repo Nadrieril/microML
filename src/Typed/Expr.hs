@@ -1,42 +1,33 @@
-{-# LANGUAGE DeriveFunctor, DeriveTraversable #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 module Typed.Expr
     ( VId
     , Name(..)
     , Value(..)
-    , Expr(..)
-    , SExpr(..)
+    , TExpr(..)
+    , AbsExpr(..)
+    , Expr
     ) where
 
 import Text.Printf (printf)
 import Control.Monad.State.Strict (State, gets, evalState)
 
 import Utils (Stack, local, push)
-import DeBruijn.Expr (Name(..), Value(..))
+import DeBruijn.Expr (Name(..), Value(..), AbsExpr(..), AExpr)
 
 type VId = Int
 
-data Expr a = TExpr a (SExpr a)
-    deriving (Functor, Foldable, Traversable)
+data TExpr t e = TExpr t e
 
-data SExpr a =
-      Var VId
-    | Global Name
-    | Const Value
-    | If (Expr a) (Expr a) (Expr a)
-    | Fun Name (Expr a)
-    | Fix Name (Expr a)
-    | Let Name (Expr a) (Expr a)
-    | Ap (Expr a) (Expr a)
-    deriving (Functor, Foldable, Traversable)
+type Expr a = AExpr (TExpr a)
 
 
 instance Show a => Show (Expr a) where
   show e@(TExpr t _) = printf "%s\n:: %s" (evalState (showTE e) []) (show t)
 
-showTE :: Show a => Expr a -> State (Stack Name) String
+showTE :: Show a => TExpr a (AbsExpr (TExpr a)) -> State (Stack Name) String
 showTE (TExpr _ e) = showE e
 
-showE :: Show a => SExpr a -> State (Stack Name) String
+showE :: Show a => AbsExpr (TExpr a) -> State (Stack Name) String
 showE (Var i) = show <$> gets (!! i)
 showE (Global x) = return $ show x
 showE (Const c) = return $ show c
