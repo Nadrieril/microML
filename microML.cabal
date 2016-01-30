@@ -16,6 +16,7 @@ executable main
           DeBruijn.Expr
           DeBruijn.Eval
           Typed.Type
+          Typed.UnionFind
           StdLib
           Utils
 
@@ -24,7 +25,9 @@ executable main
           base
         , parsec
         , containers
+        , unordered-containers
         , mtl
         , directory
+        , hashable
 
     ghc-options: -Wall -fno-warn-missing-signatures -fno-warn-name-shadowing -fno-warn-unused-do-bind -O0
