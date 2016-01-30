@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes, FlexibleContexts, ScopedTypeVariables #-}
 module Typed.Infer
     ( inferType
     ) where
@@ -5,7 +6,8 @@ module Typed.Infer
 import Text.Printf (printf)
 import qualified Data.Map as M ((!))
 import qualified Data.IntSet as IS
-import Control.Monad.State.Strict (State, get, put, modify, evalState)
+import Control.Eff (Member, Eff, run)
+import Control.Eff.State.Strict (State, get, put, modify, evalState)
 
 import Utils (Stack, trace)
 import qualified DeBruijn.Expr as DeBruijn
@@ -14,69 +16,61 @@ import qualified Typed.UnionFind as UF
 import Typed.Type
 import Typed.Expr
 
-type Env a = State (Int, Stack Type, UF.UnionFind MonoType) a
+type Env r e = (Member (State Int) r, Member (State (Stack Type)) r, Member (State (UF.UnionFind MonoType)) r) => Eff r e
 
-localEnv :: Env a -> Env a
+localEnv :: Env r a -> Env r a
 localEnv m = do
-    (_, stk, _) <- get
+    (stk :: Stack Type) <- get
     ret <- m
-    modify (\(i, _, uf) -> (i, stk, uf))
+    put stk
     return ret
 
-
-freshV :: Env MonoType
+freshV :: Env r MonoType
 freshV = do
-    (i, stk, uf) <- get
-    put (i+1, stk, uf)
+    i <- get
+    put (i+1)
     return $ TVar i
 
-union :: MonoType -> MonoType -> Env ()
-union x y = do
-    (i, stk, uf) <- get
-    let uf' = UF.union' uf mergeTypes x y
-    put (i, stk, uf')
+union :: MonoType -> MonoType -> Env r ()
+union x y = modify (UF.union' mergeTypes x y)
 
-find' :: MonoType -> Env MonoType
+find' :: MonoType -> Env r MonoType
 find' x = do
-    (i, stk, uf) <- get
+    uf <- get
     let (y, uf') = UF.find uf x
-    put (i, stk, uf')
+    put uf'
     return y
 
-find :: MonoType -> Env MonoType
+find :: MonoType -> Env r MonoType
 find (t1 :-> t2) = (:->) <$> find t1 <*> find t2
 find t = find' t
 
-findP :: Type -> Env Type
+findP :: Type -> Env r Type
 findP (Mono t) = Mono <$> find t
 findP (Bound i t) = do
     TVar i <- find (TVar i)
     Bound i <$> findP t
 
 
-getType :: VId -> Env Type
-getType i = do
-    (_, stk, _) <- get
-    return $ stk !! i
+getType :: VId -> Env r Type
+getType i = (!! i) <$> get
 
-push :: Type -> Env ()
-push t = do
-    (i, stk, uf) <- get
-    put (i, t:stk, uf)
+push :: Type -> Env r ()
+push t = modify (t:)
 
-inst :: Type -> Env MonoType
+inst :: Type -> Env r MonoType
 inst (Mono t) = return t
 inst (Bound i t) = do
     TVar i' <- freshV
     inst $ mapVars (\j -> if i==j then i' else j) t
 
-unify :: MonoType -> MonoType -> Env ()
+unify :: MonoType -> MonoType -> Env r ()
 unify t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
     t1 <- find t1
     t2 <- find t2
     unify_ t1 t2
     where
-        unify_ :: MonoType -> MonoType -> Env ()
+        unify_ :: MonoType -> MonoType -> Env r ()
         unify_ (t11 :-> t12) (t21 :-> t22) = unify_ t11 t21 >> unify_ t12 t22
         unify_ t1@(TVar _) t2 = t1 `union` t2
         unify_ t1 t2@(TVar _) = t1 `union` t2
@@ -84,11 +78,11 @@ unify t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
                      | otherwise = error $ printf "Cannot unify %s and %s" (show t1) (show t2)
 
 
-bind :: Type -> Env Type
+bind :: Type -> Env r Type
 bind t = do
     t <- findP t
     let freeInT = free t
-    (_, stk, _) <- get
+    stk <- get
     let freeInStack = IS.unions (map free stk)
     return $ IS.foldr Bound t (freeInT IS.\\ freeInStack)
 
@@ -96,7 +90,7 @@ typeof :: Value -> TConst
 typeof (B _) = TBool
 typeof (I _) = TInt
 
-typeE :: DeBruijn.Expr -> Env (Expr Type)
+typeE :: DeBruijn.Expr -> Env r (Expr Type)
 typeE (DeBruijn.Const c) = return $ TExpr (Mono $ TConst $ typeof c) (Const c)
 
 typeE (DeBruijn.Var x) = do
@@ -144,10 +138,13 @@ typeE (DeBruijn.Let v e) = do
     return $ TExpr t'' (Let (TExpr t v) e)
 
 inferType :: DeBruijn.Expr -> Expr Type
-inferType e = flip evalState (0, [], UF.empty) $ do
+inferType e = run $
+    evalState (0 :: Int) $
+    evalState ([] :: Stack Type) $
+    evalState (UF.empty :: UF.UnionFind MonoType) $ do
         TExpr t e <- typeE e
         t <- bind t
         let e' = TExpr t e
-        (_, _, uf) <- get
+        (uf :: UF.UnionFind MonoType) <- get
         -- trace uf $ traverse findP e'
         trace uf $ return e'

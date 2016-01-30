@@ -92,11 +92,11 @@ equivalent uf x y = flip evalState uf $ do
     return $ i1 == i2
 
 
-union :: (Show a, Eq a, Hashable a) => UnionFind a -> a -> a -> UnionFind a
-union uf = union' uf const
+union :: (Show a, Eq a, Hashable a) => a -> a -> UnionFind a -> UnionFind a
+union = union' const
 
-union' :: (Show a, Eq a, Hashable a) => UnionFind a -> (a -> a -> a) -> a -> a -> UnionFind a
-union' uf merge x y = trace uf $ trace ("union " ++ show x ++ ", " ++ show y) $ flip evalState uf $ do
+union' :: (Show a, Eq a, Hashable a) => (a -> a -> a) -> a -> a -> UnionFind a -> UnionFind a
+union' merge x y uf = trace uf $ trace ("union " ++ show x ++ ", " ++ show y) $ flip evalState uf $ do
     (i1, r1, a1) <- reprInfo x
     (i2, r2, a2) <- reprInfo y
     let a = merge a1 a2
