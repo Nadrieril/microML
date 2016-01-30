@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, FlexibleContexts, ScopedTypeVariables, LambdaCase #-}
+{-# LANGUAGE RankNTypes, FlexibleContexts, ScopedTypeVariables, LambdaCase, ViewPatterns #-}
 module Typed.Infer
     ( inferType
     ) where
@@ -92,10 +92,10 @@ typeof (B _) = TBool
 typeof (I _) = TInt
 
 
-typeAE :: DeBruijn.Expr -> Env r (Expr Type)
-typeAE = typeE . DeBruijn.runIdentity
+typeAE :: DeBruijn.Expr -> Env r Expr
+typeAE (DeBruijn.unFixP -> e) = typeE e
 
-typeE :: DeBruijn.AbsExpr DeBruijn.Identity -> Env r (Expr Type)
+typeE :: DeBruijn.AExpr DeBruijn.Expr -> Env r Expr
 typeE (DeBruijn.Const c) = return $ TExpr (Mono $ TConst $ typeof c) (Const c)
 
 typeE (DeBruijn.Var x) = do
@@ -138,6 +138,7 @@ typeE (DeBruijn.Fix n e) = do
         typeAE e
     unify (t :-> t) te
     return $ TExpr (Mono (t :-> t)) (Fix n e')
+    -- TODO: replace t :-> t with t
 
 typeE (DeBruijn.Let n v e) = do
     TExpr t v <- typeAE v
@@ -149,7 +150,7 @@ typeE (DeBruijn.Let n v e) = do
             typeAE e
     return $ TExpr t'' (Let n (TExpr t v) e)
 
-inferType :: DeBruijn.Expr -> Expr Type
+inferType :: DeBruijn.Expr -> Expr
 inferType e = run $
     evalState (0 :: Int) $
     evalState ([] :: Stack Type) $

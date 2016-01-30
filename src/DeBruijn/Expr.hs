@@ -1,11 +1,10 @@
-{-# LANGUAGE DeriveFunctor, TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE DeriveFunctor, TypeSynonymInstances, FlexibleInstances, PatternSynonyms, ViewPatterns #-}
 module DeBruijn.Expr
-    ( Identity(..)
+    ( FixP(..)
     , Name(..)
     , Value(..)
     , Expr
-    , AbsExpr(..)
-    , AExpr
+    , AExpr(..)
     , Id
     , deBruijn
     ) where
@@ -18,53 +17,55 @@ import Utils (Stack, withPush, local, push)
 import AFT.Expr (Name, Value)
 import qualified AFT.Expr as AFT
 
-newtype Identity a = Identity { runIdentity :: a}
-    deriving (Functor)
-
-data AbsExpr f =
+data AExpr a =
       Var Id
     | Global Name
     | Const Value
-    | If (AExpr f) (AExpr f) (AExpr f)
-    | Fun Name (AExpr f)
-    | Fix Name (AExpr f)
-    | Let Name (AExpr f) (AExpr f)
-    | Ap (AExpr f) (AExpr f)
+    | If a a a
+    | Fun Name a
+    | Fix Name a
+    | Let Name a a
+    | Ap a a
 
-type AExpr f = f (AbsExpr f)
-
+newtype FixP f = FixP {unFixP :: f (FixP f)}
 
 type Id = Int
 
-type Expr = AExpr Identity
+type Expr = FixP AExpr
+
+
+
+
+
+
+
+
 
 instance Show Expr where
-  show e =  evalState (showAE e) []
+  show e =  evalState (showE e) []
 
-showAE :: Expr -> State (Stack Name) String
-showAE = showE . runIdentity
-
-showE :: AbsExpr Identity -> State (Stack Name) String
-showE (Var i) = show <$> gets (!! i)
-showE (Global x) = return $ show x
-showE (Const c) = return $ show c
-showE (Fun n e) = local $ do
+showE :: Expr -> State (Stack Name) String
+showE (unFixP -> Var i) = show <$> gets (!! i)
+showE (unFixP -> Global x) = return $ show x
+showE (unFixP -> Const c) = return $ show c
+showE (unFixP -> Fun n e) = local $ do
         push n
-        printf "(\\%s -> %s)" (show n) <$> showAE e
-showE (Fix n e) = local $ do
+        printf "(\\%s -> %s)" (show n) <$> showE e
+showE (unFixP -> Fix n e) = local $ do
         push n
-        printf "fix(\\%s -> %s)" (show n) <$> showAE e
-showE (Let n v e) = local $ do
+        printf "fix(\\%s -> %s)" (show n) <$> showE e
+showE (unFixP -> Let n v e) = local $ do
         push n
-        printf "let %s = %s in\n%s" (show n) <$> showAE v <*> showAE e
-showE (Ap f x) = printf "(%s %s)" <$> showAE f <*> showAE x
-showE (If b e1 e2) = printf "if %s then %s else %s" <$> showAE b <*> showAE e1 <*> showAE e2
+        printf "let %s = %s in\n%s" (show n) <$> showE v <*> showE e
+showE (unFixP -> Ap f x) = printf "(%s %s)" <$> showE f <*> showE x
+showE (unFixP -> If b e1 e2) = printf "if %s then %s else %s" <$> showE b <*> showE e1 <*> showE e2
+showE _ = error "impossible"
 
 
 deBruijnAE :: AFT.Expr Name -> State (Stack Name) Expr
-deBruijnAE = fmap Identity . deBruijnE
+deBruijnAE = fmap FixP . deBruijnE
 
-deBruijnE :: AFT.Expr Name -> State (Stack Name) (AbsExpr Identity)
+deBruijnE :: AFT.Expr Name -> State (Stack Name) (AExpr Expr)
 deBruijnE (AFT.Var x) = do
     s <- get
     return $ case elemIndex x s of

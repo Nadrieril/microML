@@ -14,7 +14,7 @@ import Control.Monad.State (StateT, evalStateT, get, put)
 
 import Utils (push, local)
 import qualified StdLib (stdLib)
-import DeBruijn.Expr (Identity(..), Expr, AbsExpr(..), Value(..), Name(..))
+import DeBruijn.Expr (FixP(..), Expr, AExpr(..), Value(..), Name(..))
 
 
 type Env e = [Val e]
@@ -57,9 +57,9 @@ evalAp (VSysCall f) y = f y
 evalAp v _ = error $ printf "Error: attempting to evaluate %s as function" (show v)
 
 evalAE :: Expr -> Eval Expr
-evalAE = evalE . runIdentity
+evalAE = evalE . unFixP
 
-evalE :: AbsExpr Identity -> Eval Expr
+evalE :: AExpr Expr -> Eval Expr
 evalE (Var i) = (!! i) <$> getStack
 evalE (Global g) = (M.! g) <$> getGlobals
 evalE (Const (B b)) = return $ VBool b
