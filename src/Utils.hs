@@ -5,7 +5,11 @@ import Control.Monad.State.Class (MonadState, put, get, modify)
 import Control.Monad.State (StateT)
 import System.IO.Unsafe (unsafePerformIO)
 
-trace x y = unsafePerformIO (print x >> return y)
+debug = False
+
+trace x y = if debug
+    then unsafePerformIO (print x >> return y)
+    else y
 
 
 type Stack a = [a]
