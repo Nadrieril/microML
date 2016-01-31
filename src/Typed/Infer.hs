@@ -45,7 +45,14 @@ union x y = modify (UF.union' mergeTypes x y)
 
 find :: MonoType -> Env r MonoType
 find (t1 :-> t2) = (:->) <$> find t1 <*> find t2
-find t = state (UF.find t)
+find t = do
+    t <- state (UF.find t)
+    case t of
+        (_ :-> _) -> do -- We can unify further both sides
+            t' <- find t
+            t `union` t'
+            return t'
+        _ -> return t
 
 getType :: VId -> Env r Type
 getType i = (!! i) <$> get
@@ -119,10 +126,9 @@ typeE (DeBruijn.AFun n e) = do
 
 typeE (DeBruijn.AFix n e) = do
     t <- freshV
-    e <- localPush (Mono (t :-> t)) $ typeE e
-    unify (t :-> t) (label e)
-    return $ LFixP (t :-> t) (Fix n e)
-    -- TODO: replace t :-> t with t
+    e <- localPush (Mono t) $ typeE e
+    unify t (label e)
+    return $ LFixP t (Fix n e)
 
 typeE (DeBruijn.ALet n v e) = do
     LFixP t v <- typeE v
