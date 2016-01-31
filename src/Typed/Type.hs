@@ -2,8 +2,9 @@
 module Typed.Type
     ( TId
     , TConst(..)
-    , MonoType(..)
-    , PolyType(..)
+    , Mono(..)
+    , Poly(..)
+    , MonoType
     , Type
     , free
     , mergeTypes
@@ -22,18 +23,19 @@ type TId = Int
 data TConst = TBool | TInt
     deriving (Eq, Generic)
 
-data MonoType =
+data Mono a =
       TConst TConst
-    | MonoType :-> MonoType
-    | TVar TId
-    deriving (Eq, Generic)
-
-type Type = PolyType MonoType
-
-data PolyType a =
-      Mono a
-    | Bound TId (PolyType a)
+    | Mono a :-> Mono a
+    | TVar a
     deriving (Eq, Generic, Functor)
+
+data Poly a =
+      Mono (Mono a)
+    | Bound a (Poly a)
+    deriving (Eq, Generic, Functor)
+
+type Type = Poly TId
+type MonoType = Mono TId
 
 
 instance Show TConst where
@@ -71,8 +73,4 @@ mergeTypes t1 (TVar _) = t1
 mergeTypes t1 t2 = error $ printf "Cannot merge different types (%s and %s)" (show t1) (show t2)
 
 mapVars :: (TId -> TId) -> Type -> Type
-mapVars f (Bound i t) = Bound (f i) (mapVars f t)
-mapVars f (Mono t) = Mono $ go t
-    where go (TVar i) = TVar $ f i
-          go (t1 :-> t2) = go t1 :-> go t2
-          go t = t
+mapVars = fmap

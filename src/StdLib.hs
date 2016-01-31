@@ -5,7 +5,7 @@ import Text.Printf (printf)
 import Control.Arrow (first)
 
 import AST.Expr (Name(..), Value(..))
-import Typed.Type (TConst(..), MonoType(..), PolyType(..), Type)
+import Typed.Type (TConst(..), Mono(..), Poly(..), Type)
 
 stdLib :: M.Map Name (Value -> Value -> Value)
 stdLib = M.fromList $ fmap (first Name) [
