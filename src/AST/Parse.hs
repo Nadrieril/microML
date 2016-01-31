@@ -49,7 +49,8 @@ typeIdent = (string "Int" >> return TInt)
     <?> "type identifier"
 
 typeAtom :: Parser (Mono Name)
-typeAtom = TVar <$> ident <|> TConst <$> typeIdent
+typeAtom = TVar <$> ident
+       <|> TConst <$> typeIdent
     <?> "type atom"
 
 typ :: Parser (Mono Name)
@@ -58,9 +59,7 @@ typ = foldl1 (:->) <$> typeAtom `sepBy1` reservedOp "->"
 
 
 typed :: Parser (Expr Name) -> Parser (TExpr Name)
--- typed p = untyped <$> p
 typed p = flip LFixP <$> p <*> optionMaybe (reservedOp "::" >> typ)
-
 
 -----------------------
 operators :: forall st. [[Operator Char st (Expr Name)]]
@@ -84,38 +83,41 @@ operators = [ [neg]
         eq =  g "=="
 
 
+boolean :: Parser (Expr Name)
+boolean = fmap (Const . B) (
+          (reserved "true" >> return True)
+      <|> (reserved "false" >> return False)
+      <?> "boolean")
+
+integer :: Parser (Expr Name)
+integer = (Const . I) <$> natural
+    <?> "integer"
+
+variable :: Parser (Expr Name)
+variable = Var <$> ident
+    <?> "variable"
+
 letin :: Parser (Expr Name)
 letin = do
     reserved "let"
     b <- optionMaybe $ reserved "rec"
-    x <- ident
-    reservedOp "="
-    v <- expr
-    reserved "in"
-    e <- expr
-    return $ (if isJust b then LetR else Let) x v e
+    (if isJust b then LetR else Let)
+        <$> ident
+        <*> (reservedOp "=" >> expr)
+        <*> (reserved "in" >> expr)
+    <?> "let"
 
 ifthenelse :: Parser (Expr Name)
-ifthenelse = do
-    reserved "if"
-    b <- expr
-    reserved "then"
-    e1 <- expr
-    reserved "else"
-    e2 <- expr
-    return $ If b e1 e2
+ifthenelse = If <$> (reserved "if" >> expr)
+                <*> (reserved "then" >> expr)
+                <*> (reserved "else" >> expr)
+    <?> "if"
 
 lambda :: Parser (Expr Name)
-lambda = do
-    reserved "fun"
-    x <- ident
-    reservedOp "->"
-    e <- expr
-    return $ Fun x e
+lambda = Fun <$> (reserved "fun" >> ident)
+             <*> (reservedOp "->" >> expr)
+    <?> "lambda"
 
-boolean :: Parser (Expr Name)
-boolean = (reserved "true" >> return (Const $ B True))
-      <|> (reserved "false" >> return (Const $ B False))
 
 atom :: Parser (Expr Name)
 atom =  (Wrap <$> parens expr)
@@ -123,17 +125,16 @@ atom =  (Wrap <$> parens expr)
     <|> ifthenelse
     <|> lambda
     <|> boolean
-    <|> (Const . I) <$> natural
-    <|> Var <$> ident
+    <|> integer
+    <|> variable
     <?> "atom"
 
 funAp :: Parser (Expr Name)
-funAp = foldl1 (Ap `on` untyped) <$> many1 atom
+funAp = foldl1 (Ap `on` untyped) <$> many1 atom <?> "function application"
 
 expr :: Parser (TExpr Name)
-expr = typed (buildExpressionParser operators funAp
-            <?> "expression")
+expr = typed (buildExpressionParser operators funAp <?> "expression")
 
 
 parseML :: String -> Either ParseError (TExpr Name)
-parseML = parse (whiteSpace >> expr) "(unknown)"
+parseML = parse (whiteSpace >> expr) "Parse error"
