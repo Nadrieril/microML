@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, FlexibleContexts, ScopedTypeVariables, LambdaCase, ViewPatterns #-}
+{-# LANGUAGE RankNTypes, FlexibleContexts, ScopedTypeVariables, LambdaCase #-}
 module Typed.Infer
     ( inferType
     ) where
@@ -92,72 +92,72 @@ typeof (B _) = TBool
 typeof (I _) = TInt
 
 
-typeAE :: DeBruijn.Expr -> Env r Expr
-typeAE (DeBruijn.unFixP -> e) = typeE e
+typeE :: DeBruijn.Expr -> Env r Expr
+typeE (DeBruijn.AConst c) = return $ LFixP (Mono $ TConst $ typeof c) (Const c)
 
-typeE :: DeBruijn.AExpr DeBruijn.Expr -> Env r Expr
-typeE (DeBruijn.Const c) = return $ TExpr (Mono $ TConst $ typeof c) (Const c)
-
-typeE (DeBruijn.Var x) = do
+typeE (DeBruijn.AVar x) = do
     t <- getType x
     s <- inst t
-    return $ TExpr (Mono s) (Var x)
+    return $ LFixP (Mono s) (Var x)
 
-typeE (DeBruijn.Global x) = do
+typeE (DeBruijn.AGlobal x) = do
     let t = stdLibTypes M.! x
     s <- inst t
-    return $ TExpr (Mono s) (Global x)
+    return $ LFixP (Mono s) (Global x)
 
-typeE (DeBruijn.If b e1 e2) = do
-    b@(TExpr (Mono tb) _) <- typeAE b
+typeE (DeBruijn.AIf b e1 e2) = do
+    b@(LFixP (Mono tb) _) <- typeE b
     unify tb (TConst TBool)
-    e1@(TExpr (Mono t1) _) <- typeAE e1
-    e2@(TExpr (Mono t2) _) <- typeAE e2
+    e1@(LFixP (Mono t1) _) <- typeE e1
+    e2@(LFixP (Mono t2) _) <- typeE e2
     unify t1 t2
-    return $ TExpr (Mono t1) (If b e1 e2)
+    return $ LFixP (Mono t1) (If b e1 e2)
 
-typeE (DeBruijn.Ap f x) = do
-    f@(TExpr (Mono tf) _) <- typeAE f
-    x@(TExpr (Mono tx) _) <- typeAE x
+typeE (DeBruijn.AAp f x) = do
+    f@(LFixP (Mono tf) _) <- typeE f
+    x@(LFixP (Mono tx) _) <- typeE x
     t <- freshV
     unify tf (tx :-> t)
-    return $ TExpr (Mono t) (Ap f x)
+    return $ LFixP (Mono t) (Ap f x)
 
-typeE (DeBruijn.Fun n e) = do
+typeE (DeBruijn.AFun n e) = do
     t <- freshV
-    e@(TExpr (Mono t') _) <-
+    e@(LFixP (Mono t') _) <-
         localEnv $ do
             push (Mono t)
-            typeAE e
-    return $ TExpr (Mono $ t :-> t') (Fun n e)
+            typeE e
+    return $ LFixP (Mono $ t :-> t') (Fun n e)
 
-typeE (DeBruijn.Fix n e) = do
+typeE (DeBruijn.AFix n e) = do
     t <- freshV
-    e'@(TExpr (Mono te) _) <- localEnv $ do
+    e'@(LFixP (Mono te) _) <- localEnv $ do
         push (Mono $ t :-> t)
-        typeAE e
+        typeE e
     unify (t :-> t) te
-    return $ TExpr (Mono (t :-> t)) (Fix n e')
+    return $ LFixP (Mono (t :-> t)) (Fix n e')
     -- TODO: replace t :-> t with t
 
-typeE (DeBruijn.Let n v e) = do
-    TExpr t v <- typeAE v
+typeE (DeBruijn.ALet n v e) = do
+    LFixP t v <- typeE v
     t <- findP t
     t' <- bind t
-    e@(TExpr t'' _) <-
+    e@(LFixP t'' _) <-
         localEnv $ do
             push t'
-            typeAE e
-    return $ TExpr t'' (Let n (TExpr t v) e)
+            typeE e
+    return $ LFixP t'' (Let n (LFixP t v) e)
+
+typeE _ = error "impossible"
+
 
 inferType :: DeBruijn.Expr -> Expr
 inferType e = run $
     evalState (0 :: Int) $
     evalState ([] :: Stack Type) $
     evalState (UF.empty :: UF.UnionFind MonoType) $ do
-        TExpr t e <- typeAE e
+        LFixP t e <- typeE e
         t <- bind t
-        let e' = TExpr t e
+        let e' = LFixP t e
         (uf :: UF.UnionFind MonoType) <- get
         -- trace uf $ traverse findP e'
         trace uf $ return e'

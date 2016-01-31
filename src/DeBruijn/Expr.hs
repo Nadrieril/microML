@@ -1,12 +1,16 @@
-{-# LANGUAGE DeriveFunctor, TypeSynonymInstances, FlexibleInstances, PatternSynonyms, ViewPatterns #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, FlexibleContexts, PatternSynonyms, ViewPatterns, MultiParamTypeClasses, FunctionalDependencies #-}
 module DeBruijn.Expr
-    ( FixP(..)
-    , Name(..)
+    ( Name(..)
     , Value(..)
     , Expr
     , AExpr(..)
     , Id
+    , LFixP (..)
+    , LExp
     , deBruijn
+    , calcVarName
+    , pattern AVar, pattern AGlobal, pattern AConst, pattern AIf
+    , pattern AFun, pattern AFix, pattern ALet, pattern AAp
     ) where
 
 import Text.Printf (printf)
@@ -17,8 +21,8 @@ import Utils (Stack, withPush, local, push)
 import AFT.Expr (Name, Value)
 import qualified AFT.Expr as AFT
 
-data AExpr a =
-      Var Id
+data AExpr v a =
+      Var v
     | Global Name
     | Const Value
     | If a a a
@@ -27,45 +31,87 @@ data AExpr a =
     | Let Name a a
     | Ap a a
 
-newtype FixP f = FixP {unFixP :: f (FixP f)}
+data LFixP l f = LFixP l (f (LFixP l f))
+
+type LExp l v = LFixP l (AExpr v)
+
+
+
+class AST v a | a -> v where
+  proj :: a -> AExpr v a
+  inj :: AExpr v a -> a
+
+pattern AVar v <- (proj -> Var v) where
+        AVar v = inj (Var v)
+pattern AGlobal v <- (proj -> Global v) where
+        AGlobal v = inj (Global v)
+pattern AConst v <- (proj -> Const v) where
+        AConst v = inj (Const v)
+pattern AIf a1 a2 a3 <- (proj -> If a1 a2 a3) where
+        AIf a1 a2 a3 = inj (If a1 a2 a3)
+pattern AFun v a <- (proj -> Fun v a) where
+        AFun v a = inj (Fun v a)
+pattern AFix v a <- (proj -> Fix v a) where
+        AFix v a = inj (Fix v a)
+pattern ALet v a1 a2 <- (proj -> Let v a1 a2) where
+        ALet v a1 a2 = inj (Let v a1 a2)
+pattern AAp a1 a2 <- (proj -> Ap a1 a2) where
+        AAp a1 a2 = inj (Ap a1 a2)
+
+
+instance AST v (LExp l v) where
+  proj (LFixP _ e) = e
+  inj = LFixP undefined
+
 
 type Id = Int
 
-type Expr = FixP AExpr
-
-
-
-
-
-
-
-
+type Expr = LExp () Id
 
 instance Show Expr where
-  show e =  evalState (showE e) []
+  show =  show . calcVarName
 
-showE :: Expr -> State (Stack Name) String
-showE (unFixP -> Var i) = show <$> gets (!! i)
-showE (unFixP -> Global x) = return $ show x
-showE (unFixP -> Const c) = return $ show c
-showE (unFixP -> Fun n e) = local $ do
+instance Show (LExp () Name) where
+    show (AVar i) = show i
+    show (AGlobal x) = show x
+    show (AConst c) = show c
+    show (AFun n e) = printf "(\\%s -> %s)" (show n) (show e)
+    show (AFix n e) = printf "fix(\\%s -> %s)" (show n) (show e)
+    show (ALet n v e) = printf "let %s = %s in\n%s" (show n) (show v) (show e)
+    show (AAp f x) = printf "(%s %s)" (show f) (show x)
+    show (AIf b e1 e2) = printf "if %s then %s else %s" (show b) (show e1) (show e2)
+    show _ = error "impossible"
+
+
+calcVarName :: LExp l Id -> LExp l Name
+calcVarName e = evalState (calcVarName'' e) []
+
+calcVarName'' :: LExp l Id -> State (Stack Name) (LExp l Name)
+calcVarName'' (LFixP l e) = LFixP l <$> calcVarName' e
+
+calcVarName' :: AExpr Id (LExp l Id) -> State (Stack Name) (AExpr Name (LExp l Name))
+calcVarName' (Var i) = Var <$> gets (!! i)
+calcVarName' (Global x) = return $ Global x
+calcVarName' (Const c) = return $ Const c
+calcVarName' (Fun n e) = local $ do
         push n
-        printf "(\\%s -> %s)" (show n) <$> showE e
-showE (unFixP -> Fix n e) = local $ do
+        Fun n <$> calcVarName'' e
+calcVarName' (Fix n e) = local $ do
         push n
-        printf "fix(\\%s -> %s)" (show n) <$> showE e
-showE (unFixP -> Let n v e) = local $ do
+        Fix n <$> calcVarName'' e
+calcVarName' (Let n v e) = local $ do
         push n
-        printf "let %s = %s in\n%s" (show n) <$> showE v <*> showE e
-showE (unFixP -> Ap f x) = printf "(%s %s)" <$> showE f <*> showE x
-showE (unFixP -> If b e1 e2) = printf "if %s then %s else %s" <$> showE b <*> showE e1 <*> showE e2
-showE _ = error "impossible"
+        Let n <$> calcVarName'' v <*> calcVarName'' e
+calcVarName' (Ap f x) = Ap <$> calcVarName'' f <*> calcVarName'' x
+calcVarName' (If b e1 e2) = If <$> calcVarName'' b <*> calcVarName'' e1 <*> calcVarName'' e2
+
+
 
 
 deBruijnAE :: AFT.Expr Name -> State (Stack Name) Expr
-deBruijnAE = fmap FixP . deBruijnE
+deBruijnAE = fmap (LFixP ()) . deBruijnE
 
-deBruijnE :: AFT.Expr Name -> State (Stack Name) (AExpr Expr)
+deBruijnE :: AFT.Expr Name -> State (Stack Name) (AExpr Id Expr)
 deBruijnE (AFT.Var x) = do
     s <- get
     return $ case elemIndex x s of

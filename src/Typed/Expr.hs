@@ -1,44 +1,35 @@
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, ViewPatterns #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, ViewPatterns, MultiParamTypeClasses #-}
 module Typed.Expr
     ( VId
     , Name(..)
     , Value(..)
     , AExpr(..)
-    , TExpr(..)
     , Expr
+    , LFixP(..)
     ) where
 
 import Text.Printf (printf)
-import Control.Monad.State.Strict (State, gets, evalState)
 
-import Utils (Stack, local, push)
-import DeBruijn.Expr (Name(..), Value(..), AExpr(..))
+import DeBruijn.Expr hiding (Expr)
 import Typed.Type (Type)
 
 type VId = Int
 
-data TExpr f = TExpr { typ :: Type, unTExpr :: f (TExpr f) }
-
-type Expr = TExpr AExpr
+type Expr = LExp Type VId
 
 
 instance Show Expr where
-  show e@(TExpr t _) = printf "%s\n:: %s" (evalState (showE e) []) (show t)
+    show e@(LFixP t _) = printf "%s\n:: %s" (show $ calcVarName e) (show t)
 
-showE :: Expr -> State (Stack Name) String
-showE (unTExpr -> Var i) = show <$> gets (!! i)
-showE (unTExpr -> Global x) = return $ show x
-showE (unTExpr -> Const c) = return $ show c
-showE (unTExpr -> Fun n e) = local $ do
-        push n
-        printf "(\\%s -> %s)" (show n) <$> showE e
-showE (unTExpr -> Fix n e) = local $ do
-        push n
-        printf "fix(\\%s -> %s)" (show n) <$> showE e
-showE (unTExpr -> Let n v e) = local $ do
-        let TExpr t _ = v
-        push n
-        printf "let %s :: %s = %s in\n%s" (show n) (show t) <$> showE v <*> showE e
-showE (unTExpr -> Ap f x) = printf "(%s %s)" <$> showE f <*> showE x
-showE (unTExpr -> If b e1 e2) = printf "if %s then %s else %s" <$> showE b <*> showE e1 <*> showE e2
-showE _ = error "impossible"
+instance Show (LExp Type Name) where
+    show (AVar i) = show i
+    show (AGlobal x) = show x
+    show (AConst c) = show c
+    show (AFun n e) = printf "(\\%s -> %s)" (show n) (show e)
+    show (AFix n e) = printf "fix(\\%s -> %s)" (show n) (show e)
+    show (ALet n v e) =
+        let LFixP t _ = v in
+        printf "let %s :: %s = %s in\n%s" (show n) (show t) (show v) (show e)
+    show (AAp f x) = printf "(%s %s)" (show f) (show x)
+    show (AIf b e1 e2) = printf "if %s then %s else %s" (show b) (show e1) (show e2)
+    show _ = error "impossible"
