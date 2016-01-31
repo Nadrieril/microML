@@ -1,4 +1,4 @@
-{-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE RecursiveDo, FlexibleContexts, UndecidableInstances #-}
 module AFT.Eval
     ( Env
     , Val(..)
@@ -9,11 +9,39 @@ module AFT.Eval
 
 import qualified Data.Map as M
 import Text.Printf (printf)
-import Control.Monad.State (get, put, modify, evalState)
+import Control.Monad.State (State, get, put, modify, evalState)
 
 import Utils (local)
+import qualified StdLib (stdLib)
 import AFT.Expr (Expr(..), Name(..), Value(..))
-import AST.Eval (Eval, Env, Val(..), stdLib)
+
+data Val e =
+    VInt Integer
+  | VBool Bool
+  | VFun (Env e) Name (e Name)
+  | VSysCall (Val e -> Eval e)
+
+type Env e = M.Map Name (Val e)
+
+type Eval e = State (Env e) (Val e)
+
+instance Show (e Name) => Show (Val e) where
+  show (VInt i) = printf "VInt %s" (show i)
+  show (VBool b) = printf "VBool %s" (show b)
+  show (VFun _ n e) = printf "VFun(\\%s -> %s)" (show n) (show e)
+  show VSysCall{} = printf "VSysCall"
+
+
+stdLib :: Show (e Name) => Env e
+stdLib = fmap f StdLib.stdLib
+    where
+        tr (VInt i) = I i
+        tr (VBool b) = B b
+        tr v = error $ printf "Error: attempting to evaluate %s as value" (show v)
+        tr' (I i) = VInt i
+        tr' (B b) = VBool b
+        f fop = let fop' v1 v2 = tr' (fop (tr v1) (tr v2)) in
+            VSysCall $ \v1 -> (return $ VSysCall $ \v2 -> return $ fop' v1 v2)
 
 
 evalAp :: Val Expr -> Val Expr -> Eval Expr

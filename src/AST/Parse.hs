@@ -1,13 +1,14 @@
 {-# LANGUAGE FlexibleContexts, RankNTypes #-}
 module AST.Parse (parseML) where
 
+import Data.Function (on)
 import Control.Monad (when)
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Language
 import qualified Text.ParserCombinators.Parsec.Token as Token
 
-import AST.Expr hiding (Infix)
+import AST.Expr hiding (Infix, expr)
 import qualified AST.Expr as AST
 
 -----------------------------------------------------------------------------
@@ -26,7 +27,7 @@ languageDef =
 
 lexer = Token.makeTokenParser languageDef
 
-ident      = Token.identifier lexer -- parses an identifier
+ident      = Name <$> Token.identifier lexer -- parses an identifier
 reserved   = Token.reserved   lexer -- parses a reserved name
 reservedOp = Token.reservedOp lexer -- parses an operator
 parens     = Token.parens     lexer -- parses surrounding parenthesis
@@ -34,7 +35,7 @@ natural    = Token.natural    lexer -- parses an natural
 whiteSpace = Token.whiteSpace lexer -- parses whitespace
 
 
-operators :: forall st. [[Operator Char st (Expr String)]]
+operators :: forall st. [[Operator Char st (Expr Name)]]
 operators = [ [neg]
             , [mul, div]
             , [add, sub]
@@ -43,8 +44,9 @@ operators = [ [neg]
             , [eq] ]
     where
         f c v = reservedOp c >> return v
-        neg = Prefix (f "-" (AST.Infix "-" (Const $ I 0)))
-        g o = Infix (f o (AST.Infix o)) AssocLeft
+        inf o = AST.Infix (Name o) `on` untyped
+        neg = Prefix (f "-" (inf "-" (Const $ I 0)))
+        g o = Infix (f o (inf o)) AssocLeft
         mul = g "*"
         div = g "/"
         add = g "+"
@@ -54,7 +56,7 @@ operators = [ [neg]
         eq =  g "=="
 
 
-letin :: Bool -> Parser (Expr String)
+letin :: Bool -> Parser (Expr Name)
 letin b = do
     reserved "let"
     when b $ reserved "rec"
@@ -65,13 +67,13 @@ letin b = do
     e <- expr
     return $ (if b then LetR else Let) x v e
 
-letnonrec :: Parser (Expr String)
+letnonrec :: Parser (Expr Name)
 letnonrec = letin False
-letrec :: Parser (Expr String)
+letrec :: Parser (Expr Name)
 letrec = letin True
 
 
-ifthenelse :: Parser (Expr String)
+ifthenelse :: Parser (Expr Name)
 ifthenelse = do
     reserved "if"
     b <- expr
@@ -81,7 +83,7 @@ ifthenelse = do
     e2 <- expr
     return $ If b e1 e2
 
-lambda :: Parser (Expr String)
+lambda :: Parser (Expr Name)
 lambda = do
     reserved "fun"
     x <- ident
@@ -89,12 +91,12 @@ lambda = do
     e <- expr
     return $ Fun x e
 
-boolean :: Parser (Expr String)
+boolean :: Parser (Expr Name)
 boolean = (reserved "true" >> return (Const $ B True))
       <|> (reserved "false" >> return (Const $ B False))
 
-atom :: Parser (Expr String)
-atom =  parens expr
+atom :: Parser (Expr Name)
+atom =  (Wrap <$> parens expr)
     <|> try letnonrec
     <|> letrec
     <|> ifthenelse
@@ -104,13 +106,19 @@ atom =  parens expr
     <|> Var <$> ident
     <?> "atom"
 
-funAp :: Parser (Expr String)
-funAp = foldl1 Ap <$> many1 atom
+funAp :: Parser (Expr Name)
+funAp = foldl1 (Ap `on` untyped) <$> many1 atom
 
-expr :: Parser (Expr String)
-expr = buildExpressionParser operators funAp
-            <?> "expression"
+untyped :: Expr a -> TExpr a
+untyped = LFixP Nothing
+
+typed :: Parser (Expr Name) -> Parser (TExpr Name)
+typed p = untyped <$> p
+
+expr :: Parser (TExpr Name)
+expr = typed (buildExpressionParser operators funAp
+            <?> "expression")
 
 
-parseML :: String -> Either ParseError (Expr Name)
-parseML s = fmap Name <$> parse (whiteSpace >> expr) "(unknown)" s
+parseML :: String -> Either ParseError (TExpr Name)
+parseML = parse (whiteSpace >> expr) "(unknown)"

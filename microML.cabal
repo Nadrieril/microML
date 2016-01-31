@@ -10,7 +10,6 @@ executable main
     other-modules:
           AST.Parse
           AST.Expr
-          AST.Eval
           AFT.Expr
           AFT.Eval
           DeBruijn.Expr
