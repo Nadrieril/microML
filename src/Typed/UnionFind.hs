@@ -80,8 +80,8 @@ findKey x = do
 empty :: UnionFind a
 empty = UnionFind 0 IM.empty HM.empty
 
-find :: (Eq a, Hashable a) => UnionFind a -> a -> (a, UnionFind a)
-find uf x = flip runState uf $ do
+find :: (Eq a, Hashable a) => a -> UnionFind a -> (a, UnionFind a)
+find x uf = flip runState uf $ do
     (_, _, a) <- reprInfo x
     return a
 

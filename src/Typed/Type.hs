@@ -8,7 +8,6 @@ module Typed.Type
     , Type
     , free
     , mergeTypes
-    , mapVars
     ) where
 
 import GHC.Generics (Generic)
@@ -71,6 +70,3 @@ mergeTypes (TVar i1) (TVar i2) = TVar (min i1 i2)
 mergeTypes (TVar _) t2 = t2
 mergeTypes t1 (TVar _) = t1
 mergeTypes t1 t2 = error $ printf "Cannot merge different types (%s and %s)" (show t1) (show t2)
-
-mapVars :: (TId -> TId) -> Type -> Type
-mapVars = fmap

@@ -31,7 +31,7 @@ data AExpr v a =
     | Let Name a a
     | Ap a a
 
-data LFixP l f = LFixP l (f (LFixP l f))
+data LFixP l f = LFixP { label :: l, expr :: f (LFixP l f) }
 
 type LExp l v = LFixP l (AExpr v)
 
