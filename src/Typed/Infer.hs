@@ -45,14 +45,6 @@ find :: MonoType -> Env r MonoType
 find (t1 :-> t2) = (:->) <$> find t1 <*> find t2
 find t = find' t
 
-findP :: Type -> Env r Type
-findP (Mono t) = Mono <$> find t
-findP (Bound i t) =
-    find (TVar i) >>= \case
-        TVar i' -> Bound i' <$> findP t
-        _ -> findP t
-
-
 getType :: VId -> Env r Type
 getType i = (!! i) <$> get
 
@@ -79,9 +71,9 @@ unify t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
                      | otherwise = error $ printf "Cannot unify %s and %s" (show t1) (show t2)
 
 
-bind :: Type -> Env r Type
+bind :: MonoType -> Env r Type
 bind t = do
-    t <- findP t
+    t <- Mono <$> find t
     let freeInT = free t
     stk <- get
     let freeInStack = IS.unions (map free stk)
@@ -93,53 +85,53 @@ typeof (I _) = TInt
 
 
 typeE :: DeBruijn.Expr -> Env r Expr
-typeE (DeBruijn.AConst c) = return $ LFixP (Mono $ TConst $ typeof c) (Const c)
+typeE (DeBruijn.AConst c) = return $ LFixP (TConst $ typeof c) (Const c)
 
 typeE (DeBruijn.AVar x) = do
     t <- getType x
     s <- inst t
-    return $ LFixP (Mono s) (Var x)
+    return $ LFixP s (Var x)
 
 typeE (DeBruijn.AGlobal x) = do
     let t = stdLibTypes M.! x
     s <- inst t
-    return $ LFixP (Mono s) (Global x)
+    return $ LFixP s (Global x)
 
 typeE (DeBruijn.AIf b e1 e2) = do
-    b@(LFixP (Mono tb) _) <- typeE b
+    b@(LFixP tb _) <- typeE b
     unify tb (TConst TBool)
-    e1@(LFixP (Mono t1) _) <- typeE e1
-    e2@(LFixP (Mono t2) _) <- typeE e2
+    e1@(LFixP t1 _) <- typeE e1
+    e2@(LFixP t2 _) <- typeE e2
     unify t1 t2
-    return $ LFixP (Mono t1) (If b e1 e2)
+    return $ LFixP t1 (If b e1 e2)
 
 typeE (DeBruijn.AAp f x) = do
-    f@(LFixP (Mono tf) _) <- typeE f
-    x@(LFixP (Mono tx) _) <- typeE x
+    f@(LFixP tf _) <- typeE f
+    x@(LFixP tx _) <- typeE x
     t <- freshV
     unify tf (tx :-> t)
-    return $ LFixP (Mono t) (Ap f x)
+    return $ LFixP t (Ap f x)
 
 typeE (DeBruijn.AFun n e) = do
     t <- freshV
-    e@(LFixP (Mono t') _) <-
+    e@(LFixP t' _) <-
         localEnv $ do
             push (Mono t)
             typeE e
-    return $ LFixP (Mono $ t :-> t') (Fun n e)
+    return $ LFixP (t :-> t') (Fun n e)
 
 typeE (DeBruijn.AFix n e) = do
     t <- freshV
-    e'@(LFixP (Mono te) _) <- localEnv $ do
+    e'@(LFixP te _) <- localEnv $ do
         push (Mono $ t :-> t)
         typeE e
     unify (t :-> t) te
-    return $ LFixP (Mono (t :-> t)) (Fix n e')
+    return $ LFixP (t :-> t) (Fix n e')
     -- TODO: replace t :-> t with t
 
 typeE (DeBruijn.ALet n v e) = do
     LFixP t v <- typeE v
-    t <- findP t
+    t <- find t
     t' <- bind t
     e@(LFixP t'' _) <-
         localEnv $ do
@@ -156,8 +148,9 @@ inferType e = run $
     evalState ([] :: Stack Type) $
     evalState (UF.empty :: UF.UnionFind MonoType) $ do
         LFixP t e <- typeE e
-        t <- bind t
+        t <- find t
         let e' = LFixP t e
+
         (uf :: UF.UnionFind MonoType) <- get
         -- trace uf $ traverse findP e'
         trace uf $ return e'
