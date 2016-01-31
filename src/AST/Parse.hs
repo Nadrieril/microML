@@ -10,6 +10,7 @@ import qualified Text.ParserCombinators.Parsec.Token as Token
 
 import AST.Expr hiding (Infix, expr)
 import qualified AST.Expr as AST
+import Typed.Type
 
 -----------------------------------------------------------------------------
 languageDef =
@@ -22,7 +23,7 @@ languageDef =
                                   , "true" , "false"
                                   , "and", "or", "not"
                                   ]
-        , Token.reservedOpNames = ["=", "+", "-", "*", "/", "<", ">", "==", "->" ]
+        , Token.reservedOpNames = ["::", "->", "=", "+", "-", "*", "/", "<", ">", "==" ]
     }
 
 lexer = Token.makeTokenParser languageDef
@@ -34,7 +35,34 @@ parens     = Token.parens     lexer -- parses surrounding parenthesis
 natural    = Token.natural    lexer -- parses an natural
 whiteSpace = Token.whiteSpace lexer -- parses whitespace
 
+-----------------------
+untyped :: Expr a -> TExpr a
+untyped = LFixP Nothing
 
+typeIdent :: Parser TConst
+-- typeIdent = do
+--     c <- upper
+--     cs <- many (alphaNum <|> oneOf "_'")
+--     return (c:cs)
+typeIdent = (string "Int" >> return TInt)
+        <|> (string "Bool" >> return TBool)
+    <?> "type identifier"
+
+typeAtom :: Parser (Mono Name)
+typeAtom = TVar <$> ident <|> TConst <$> typeIdent
+    <?> "type atom"
+
+typ :: Parser (Mono Name)
+typ = foldl1 (:->) <$> typeAtom `sepBy1` reservedOp "->"
+    <?> "type annotation"
+
+
+typed :: Parser (Expr Name) -> Parser (TExpr Name)
+-- typed p = untyped <$> p
+typed p = flip LFixP <$> p <*> optionMaybe (reservedOp "::" >> typ)
+
+
+-----------------------
 operators :: forall st. [[Operator Char st (Expr Name)]]
 operators = [ [neg]
             , [mul, div]
@@ -101,12 +129,6 @@ atom =  (Wrap <$> parens expr)
 
 funAp :: Parser (Expr Name)
 funAp = foldl1 (Ap `on` untyped) <$> many1 atom
-
-untyped :: Expr a -> TExpr a
-untyped = LFixP Nothing
-
-typed :: Parser (Expr Name) -> Parser (TExpr Name)
-typed p = untyped <$> p
 
 expr :: Parser (TExpr Name)
 expr = typed (buildExpressionParser operators funAp
