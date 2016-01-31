@@ -2,7 +2,7 @@
 module AST.Parse (parseML) where
 
 import Data.Function (on)
-import Control.Monad (when)
+import Data.Maybe (isJust)
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Language
@@ -56,22 +56,16 @@ operators = [ [neg]
         eq =  g "=="
 
 
-letin :: Bool -> Parser (Expr Name)
-letin b = do
+letin :: Parser (Expr Name)
+letin = do
     reserved "let"
-    when b $ reserved "rec"
+    b <- optionMaybe $ reserved "rec"
     x <- ident
     reservedOp "="
     v <- expr
     reserved "in"
     e <- expr
-    return $ (if b then LetR else Let) x v e
-
-letnonrec :: Parser (Expr Name)
-letnonrec = letin False
-letrec :: Parser (Expr Name)
-letrec = letin True
-
+    return $ (if isJust b then LetR else Let) x v e
 
 ifthenelse :: Parser (Expr Name)
 ifthenelse = do
@@ -97,8 +91,7 @@ boolean = (reserved "true" >> return (Const $ B True))
 
 atom :: Parser (Expr Name)
 atom =  (Wrap <$> parens expr)
-    <|> try letnonrec
-    <|> letrec
+    <|> letin
     <|> ifthenelse
     <|> lambda
     <|> boolean
