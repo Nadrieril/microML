@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric, DeriveFunctor, TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE DeriveGeneric, TypeSynonymInstances, FlexibleInstances #-}
 module Typed.Type
     ( TId
     , TConst(..)

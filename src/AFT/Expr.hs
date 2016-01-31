@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveFunctor, ViewPatterns #-}
 module AFT.Expr
     ( AST.Name(..)
     , AST.Value(..)

@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, FlexibleContexts, PatternSynonyms, ViewPatterns, MultiParamTypeClasses, FunctionalDependencies #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, FlexibleContexts, PatternSynonyms, MultiParamTypeClasses, FunctionalDependencies #-}
 module DeBruijn.Expr
     ( Name(..)
     , Value(..)

@@ -1,4 +1,4 @@
-{-# LANGUAGE ViewPatterns, TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 module AST.Expr
     ( Name(..)
     , Value(..)

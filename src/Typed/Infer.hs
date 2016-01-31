@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, FlexibleContexts, ScopedTypeVariables, LambdaCase #-}
+{-# LANGUAGE RankNTypes, FlexibleContexts #-}
 module Typed.Infer
     ( inferType
     ) where

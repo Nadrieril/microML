@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, FlexibleInstances, ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies, FlexibleInstances #-}
 module Main where
 
 import Control.Monad (forM_, when)

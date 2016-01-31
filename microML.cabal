@@ -21,6 +21,12 @@ executable main
           StdLib
           Utils
 
+    extensions:
+        DeriveFunctor
+        LambdaCase
+        RecordWildCards
+        ScopedTypeVariables
+        ViewPatterns
 
     build-depends:
           base
