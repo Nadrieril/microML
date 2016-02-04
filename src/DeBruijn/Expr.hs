@@ -1,11 +1,8 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances, FlexibleContexts, PatternSynonyms, MultiParamTypeClasses, FunctionalDependencies #-}
 module DeBruijn.Expr
-    ( Name(..)
-    , Value(..)
-    , Expr
+    ( Expr
     , AbstractExpr(..)
     , Id
-    , LFixP (..)
     , LabelledExp
     , deBruijn
     , calcVarName
@@ -18,9 +15,9 @@ import Data.List (elemIndex)
 import Control.Monad.State (State, get, gets, evalState)
 
 import Utils (Stack, withPush, local, push)
-import AFT.Expr (Name, Value, LFixP(..))
+import Common.Expr
+import Common.Type
 import qualified AFT.Expr as AFT
-import Typed.Type
 
 data AbstractExpr v a =
       Var v
@@ -37,7 +34,6 @@ type LabelledExp l v = LFixP l (AbstractExpr v)
 type Id = Int
 
 type TypedExpr v = LabelledExp (Maybe (Mono Name)) v
--- type TypedExpr v = LabelledExp (Maybe MonoType) v
 type UntypedExpr v = AbstractExpr v (TypedExpr v)
 type Expr = TypedExpr Id
 

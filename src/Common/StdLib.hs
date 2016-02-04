@@ -1,11 +1,11 @@
-module StdLib where
+module Common.StdLib where
 
 import qualified Data.Map as M
 import Text.Printf (printf)
 import Control.Arrow (first)
 
-import AST.Expr (Name(..), Value(..))
-import Typed.Type (TConst(..), Mono(..), Poly(..), Type)
+import Common.Expr
+import Common.Type (TConst(..), Mono(..), Poly(..), Type)
 
 stdLib :: M.Map Name (Value -> Value -> Value)
 stdLib = M.fromList $ fmap (first Name) [

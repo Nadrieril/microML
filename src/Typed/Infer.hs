@@ -11,10 +11,11 @@ import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, get, put, modify, evalState)
 
 import Utils (Stack, trace)
+import qualified Utils.UnionFind as UF
 import qualified DeBruijn.Expr as DeBruijn
-import StdLib (stdLibTypes)
-import qualified Typed.UnionFind as UF
-import Typed.Type
+import Common.StdLib (stdLibTypes)
+import Common.Expr
+import Common.Type
 import Typed.Expr
 
 type Env r e = (Member (State Int) r, Member (State (Stack Type)) r, Member (State (UF.UnionFind MonoType)) r) => Eff r e

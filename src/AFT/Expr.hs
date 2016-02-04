@@ -1,19 +1,16 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 module AFT.Expr
-    ( AST.Name(..)
-    , AST.Value(..)
-    , Expr
+    ( Expr
     , AbstractExpr(..)
-    , LFixP(..)
     , fromAST
     ) where
 
 import Data.Maybe (isJust)
 import Text.Printf (printf)
 
-import AST.Expr (Name, Value, LFixP(..))
+import Common.Expr
+import Common.Type
 import qualified AST.Expr as AST
-import Typed.Type
 
 
 data AbstractExpr v a =
@@ -50,11 +47,11 @@ mergeMaybe a b = case a of
     Just a -> Just a
 
 fromAST :: AST.Expr -> Expr
-fromAST (AST.LFixP t (AST.Wrap (AST.LFixP t' e))) =
+fromAST (LFixP t (AST.Wrap (LFixP t' e))) =
     if isJust t && isJust t'
         then error "multiple type annotations on the same expression"
         else fromAST $ LFixP (t `mergeMaybe` t') e
-fromAST (AST.LFixP t e) = LFixP t $
+fromAST (LFixP t e) = LFixP t $
     case e of
         AST.Var v -> Var v
         AST.Const c -> Const c

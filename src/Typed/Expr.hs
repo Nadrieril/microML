@@ -10,8 +10,9 @@ module Typed.Expr
 
 import Text.Printf (printf)
 
+import Common.Expr
+import Common.Type (MonoType)
 import DeBruijn.Expr hiding (Expr)
-import Typed.Type (MonoType)
 
 type VId = Int
 

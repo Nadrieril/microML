@@ -8,9 +8,10 @@ import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Language
 import qualified Text.ParserCombinators.Parsec.Token as Token
 
-import AST.Expr hiding (Infix, expr)
+import Common.Expr hiding (expr)
+import AST.Expr hiding (Infix)
 import qualified AST.Expr as AST
-import Typed.Type
+import Common.Type
 
 -----------------------------------------------------------------------------
 languageDef =

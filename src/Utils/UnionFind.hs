@@ -1,5 +1,5 @@
 {-# LANGUAGE BangPatterns, FlexibleContexts #-}
-module Typed.UnionFind (
+module Utils.UnionFind (
       UnionFind
     , empty
     , union

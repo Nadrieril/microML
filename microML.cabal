@@ -8,17 +8,18 @@ executable main
     main-is: main.hs
     hs-source-dirs: ., src
     other-modules:
+          Utils
+          Utils.UnionFind
+          Common.Expr
+          Common.StdLib
+          Common.Type
           AST.Parse
           AST.Expr
           AFT.Expr
           DeBruijn.Expr
           DeBruijn.Eval
-          Typed.Type
           Typed.Expr
-          Typed.UnionFind
           Typed.Infer
-          StdLib
-          Utils
 
     extensions:
         DeriveFunctor

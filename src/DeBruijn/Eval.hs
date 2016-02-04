@@ -13,7 +13,8 @@ import Text.Printf (printf)
 import Control.Monad.State (StateT, evalStateT, get, put)
 
 import Utils (push, local)
-import qualified StdLib (stdLib)
+import qualified Common.StdLib as StdLib (stdLib)
+import Common.Expr
 import DeBruijn.Expr
 
 

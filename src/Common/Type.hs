@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
-module Typed.Type
+module Common.Type
     ( TId
     , TConst(..)
     , Mono(..)
