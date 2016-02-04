@@ -11,7 +11,6 @@ import AST.Parse (parseML)
 
 import AFT.Expr (fromAST)
 import qualified AFT.Expr (Expr, Name)
-import qualified AFT.Eval (eval)
 
 import DeBruijn.Expr (deBruijn)
 import qualified DeBruijn.Expr (Expr)
@@ -27,7 +26,7 @@ class Show a => Evaluable a where
 instance Evaluable (AST.Expr.TExpr AST.Expr.Name) where
     eval = return "<no evaluation>"
 instance Evaluable (AFT.Expr.Expr AFT.Expr.Name) where
-    eval = show . AFT.Eval.eval
+    eval = return "<no evaluation>"
 instance Evaluable DeBruijn.Expr.Expr where
     eval = show . DeBruijn.Eval.eval
 instance Evaluable Typed.Expr.Expr where
