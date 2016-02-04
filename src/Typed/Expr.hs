@@ -3,7 +3,7 @@ module Typed.Expr
     ( VId
     , Name(..)
     , Value(..)
-    , AExpr(..)
+    , AbstractExpr(..)
     , Expr
     , LFixP(..)
     ) where
@@ -15,13 +15,13 @@ import Typed.Type (MonoType)
 
 type VId = Int
 
-type Expr = LExp MonoType VId
+type Expr = LabelledExp MonoType VId
 
 
 instance Show Expr where
     show e@(LFixP t _) = printf "%s\n:: %s" (show $ calcVarName e) (show t)
 
-instance Show (LExp MonoType Name) where
+instance Show (LabelledExp MonoType Name) where
     show (AVar i) = show i
     show (AGlobal x) = show x
     show (AConst c) = show c

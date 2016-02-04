@@ -6,11 +6,11 @@ import Control.Monad (forM_, when)
 import Control.Exception
 import System.Directory (getDirectoryContents, doesFileExist)
 
-import qualified AST.Expr (TExpr, Name)
+import qualified AST.Expr (Expr)
 import AST.Parse (parseML)
 
 import AFT.Expr (fromAST)
-import qualified AFT.Expr (Expr, Name)
+import qualified AFT.Expr (Expr)
 
 import DeBruijn.Expr (deBruijn)
 import qualified DeBruijn.Expr (Expr)
@@ -23,7 +23,7 @@ import qualified Typed.Expr (Expr)
 class Show a => Evaluable a where
     eval :: a -> String
 
-instance Evaluable (AST.Expr.TExpr AST.Expr.Name) where
+instance Evaluable AST.Expr.Expr where
     eval = return "<no evaluation>"
 instance Evaluable AFT.Expr.Expr where
     eval = return "<no evaluation>"

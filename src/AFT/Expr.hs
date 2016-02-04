@@ -49,7 +49,7 @@ mergeMaybe a b = case a of
     Nothing -> b
     Just a -> Just a
 
-fromAST :: AST.TExpr a -> TypedExpr a
+fromAST :: AST.Expr -> Expr
 fromAST (AST.LFixP t (AST.Wrap (AST.LFixP t' e))) =
     if isJust t && isJust t'
         then error "multiple type annotations on the same expression"

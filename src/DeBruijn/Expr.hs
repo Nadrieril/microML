@@ -3,10 +3,10 @@ module DeBruijn.Expr
     ( Name(..)
     , Value(..)
     , Expr
-    , AExpr(..)
+    , AbstractExpr(..)
     , Id
     , LFixP (..)
-    , LExp
+    , LabelledExp
     , deBruijn
     , calcVarName
     , pattern AVar, pattern AGlobal, pattern AConst, pattern AIf
@@ -21,7 +21,7 @@ import Utils (Stack, withPush, local, push)
 import AFT.Expr (Name, Value, LFixP(..))
 import qualified AFT.Expr as AFT
 
-data AExpr v a =
+data AbstractExpr v a =
       Var v
     | Global Name
     | Const Value
@@ -31,13 +31,16 @@ data AExpr v a =
     | Let Name a a
     | Ap a a
 
-type LExp l v = LFixP l (AExpr v)
+type LabelledExp l v = LFixP l (AbstractExpr v)
+
+type Id = Int
+type Expr = LabelledExp () Id
 
 
 
 class AST v a | a -> v where
-  proj :: a -> AExpr v a
-  inj :: AExpr v a -> a
+  proj :: a -> AbstractExpr v a
+  inj :: AbstractExpr v a -> a
 
 pattern AVar v <- (proj -> Var v) where
         AVar v = inj (Var v)
@@ -57,19 +60,16 @@ pattern AAp a1 a2 <- (proj -> Ap a1 a2) where
         AAp a1 a2 = inj (Ap a1 a2)
 
 
-instance AST v (LExp l v) where
+instance AST v (LabelledExp l v) where
   proj (LFixP _ e) = e
   inj = LFixP undefined
 
 
-type Id = Int
-
-type Expr = LExp () Id
 
 instance Show Expr where
   show =  show . calcVarName
 
-instance Show (LExp () Name) where
+instance Show (LabelledExp () Name) where
     show (AVar i) = show i
     show (AGlobal x) = show x
     show (AConst c) = show c
@@ -81,13 +81,13 @@ instance Show (LExp () Name) where
     show _ = error "impossible"
 
 
-calcVarName :: LExp l Id -> LExp l Name
+calcVarName :: LabelledExp l Id -> LabelledExp l Name
 calcVarName e = evalState (calcVarName'' e) []
 
-calcVarName'' :: LExp l Id -> State (Stack Name) (LExp l Name)
+calcVarName'' :: LabelledExp l Id -> State (Stack Name) (LabelledExp l Name)
 calcVarName'' (LFixP l e) = LFixP l <$> calcVarName' e
 
-calcVarName' :: AExpr Id (LExp l Id) -> State (Stack Name) (AExpr Name (LExp l Name))
+calcVarName' :: AbstractExpr Id (LabelledExp l Id) -> State (Stack Name) (AbstractExpr Name (LabelledExp l Name))
 calcVarName' (Var i) = Var <$> gets (!! i)
 -- calcVarName' (Var i) = do
 --     AFT.Name n <- gets (!! i)

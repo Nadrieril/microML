@@ -36,7 +36,7 @@ natural    = Token.natural    lexer -- parses an natural
 whiteSpace = Token.whiteSpace lexer -- parses whitespace
 
 -----------------------
-untyped :: Expr a -> TExpr a
+untyped :: UntypedExpr a -> TypedExpr a
 untyped = LFixP Nothing
 
 typeIdent :: Parser TConst
@@ -58,11 +58,11 @@ typ = foldl1 (:->) <$> typeAtom `sepBy1` reservedOp "->"
     <?> "type annotation"
 
 
-typed :: Parser (Expr Name) -> Parser (TExpr Name)
+typed :: Parser (UntypedExpr Name) -> Parser (TypedExpr Name)
 typed p = flip LFixP <$> p <*> optionMaybe (reservedOp "::" >> typ)
 
 -----------------------
-operators :: forall st. [[Operator Char st (Expr Name)]]
+operators :: forall st. [[Operator Char st (UntypedExpr Name)]]
 operators = [ [neg]
             , [mul, div]
             , [add, sub]
@@ -83,21 +83,21 @@ operators = [ [neg]
         eq =  g "=="
 
 
-boolean :: Parser (Expr Name)
+boolean :: Parser (UntypedExpr Name)
 boolean = fmap (Const . B) (
           (reserved "true" >> return True)
       <|> (reserved "false" >> return False)
       <?> "boolean")
 
-integer :: Parser (Expr Name)
+integer :: Parser (UntypedExpr Name)
 integer = (Const . I) <$> natural
     <?> "integer"
 
-variable :: Parser (Expr Name)
+variable :: Parser (UntypedExpr Name)
 variable = Var <$> ident
     <?> "variable"
 
-letin :: Parser (Expr Name)
+letin :: Parser (UntypedExpr Name)
 letin = do
     reserved "let"
     b <- optionMaybe $ reserved "rec"
@@ -107,19 +107,19 @@ letin = do
         <*> (reserved "in" >> expr)
     <?> "let"
 
-ifthenelse :: Parser (Expr Name)
+ifthenelse :: Parser (UntypedExpr Name)
 ifthenelse = If <$> (reserved "if" >> expr)
                 <*> (reserved "then" >> expr)
                 <*> (reserved "else" >> expr)
     <?> "if"
 
-lambda :: Parser (Expr Name)
+lambda :: Parser (UntypedExpr Name)
 lambda = Fun <$> (reserved "fun" >> ident)
              <*> (reservedOp "->" >> expr)
     <?> "lambda"
 
 
-atom :: Parser (Expr Name)
+atom :: Parser (UntypedExpr Name)
 atom =  (Wrap <$> parens expr)
     <|> letin
     <|> ifthenelse
@@ -129,12 +129,12 @@ atom =  (Wrap <$> parens expr)
     <|> variable
     <?> "atom"
 
-funAp :: Parser (Expr Name)
+funAp :: Parser (UntypedExpr Name)
 funAp = foldl1 (Ap `on` untyped) <$> many1 atom <?> "function application"
 
-expr :: Parser (TExpr Name)
+expr :: Parser Expr
 expr = typed (buildExpressionParser operators funAp <?> "expression")
 
 
-parseML :: String -> Either ParseError (TExpr Name)
+parseML :: String -> Either ParseError Expr
 parseML = parse (whiteSpace >> expr) "Parse error"

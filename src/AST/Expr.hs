@@ -2,11 +2,12 @@
 module AST.Expr
     ( Name(..)
     , Value(..)
-    , AExpr(..)
     , LFixP(..)
-    , LExp
+    , AbstractExpr(..)
+    , LabelledExp
+    , TypedExpr
+    , UntypedExpr
     , Expr
-    , TExpr
     ) where
 
 import Text.Printf (printf)
@@ -27,7 +28,7 @@ instance Show Value where
 
 data LFixP l f = LFixP { label :: l, expr :: f (LFixP l f) }
 
-data AExpr v a =
+data AbstractExpr v a =
       Var v
     | Const Value
     | Infix v a a
@@ -38,17 +39,17 @@ data AExpr v a =
     | Fun v a
     | Wrap a
 
-type LExp l v = LFixP l (AExpr v)
+type LabelledExp l v = LFixP l (AbstractExpr v)
 
-type TExpr v = LExp (Maybe (Mono Name)) v
-type Expr v = AExpr v (TExpr v)
+type TypedExpr v = LabelledExp (Maybe (Mono Name)) v
+type UntypedExpr v = AbstractExpr v (TypedExpr v)
+type Expr = TypedExpr Name
 
-
-instance Show v => Show (TExpr v) where
+instance Show v => Show (TypedExpr v) where
     show (LFixP Nothing e) = showE e
     show (LFixP (Just t) e) = printf "%s :: %s" (showE e) (show t)
 
-showE :: Show v => AExpr v (TExpr v) -> String
+showE :: Show v => AbstractExpr v (TypedExpr v) -> String
 showE (Var x) = show x
 showE (Const c) = show c
 showE (Infix o x y) = printf "(%s %s %s)" (show x) (show o) (show y)
