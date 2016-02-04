@@ -57,10 +57,14 @@ typeAtom = TConst <$> typeIdent
        <|> TVar <$> ident
     <?> "type atom"
 
-typ :: Parser (Mono Name)
-typ = foldl1 (:->) <$> typeAtom `sepBy1` reservedOp "->"
-    <?> "type annotation"
+typeOperators :: forall st. [[Operator Char st (Mono Name)]]
+typeOperators = [ [fun] ]
+    where
+        fun = Infix (reservedOp "->" >> return (:->)) AssocRight
 
+typ :: Parser (Mono Name)
+typ = buildExpressionParser typeOperators typeAtom
+    <?> "type annotation"
 
 typed :: Parser (UntypedExpr Name) -> Parser (TypedExpr Name)
 typed p = flip LFixP <$> p <*> optionMaybe (reservedOp "::" >> typ)
