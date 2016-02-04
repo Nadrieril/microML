@@ -20,6 +20,7 @@ import Control.Monad.State (State, get, gets, evalState)
 import Utils (Stack, withPush, local, push)
 import AFT.Expr (Name, Value, LFixP(..))
 import qualified AFT.Expr as AFT
+import Typed.Type
 
 data AbstractExpr v a =
       Var v
@@ -34,7 +35,11 @@ data AbstractExpr v a =
 type LabelledExp l v = LFixP l (AbstractExpr v)
 
 type Id = Int
-type Expr = LabelledExp () Id
+
+type TypedExpr v = LabelledExp (Maybe (Mono Name)) v
+-- type TypedExpr v = LabelledExp (Maybe MonoType) v
+type UntypedExpr v = AbstractExpr v (TypedExpr v)
+type Expr = TypedExpr Id
 
 
 
@@ -69,16 +74,21 @@ instance AST v (LabelledExp l v) where
 instance Show Expr where
   show =  show . calcVarName
 
-instance Show (LabelledExp () Name) where
-    show (AVar i) = show i
-    show (AGlobal x) = show x
-    show (AConst c) = show c
-    show (AFun n e) = printf "(\\%s -> %s)" (show n) (show e)
-    show (AFix n e) = printf "fix(\\%s -> %s)" (show n) (show e)
-    show (ALet n v e) = printf "let %s = %s in\n%s" (show n) (show v) (show e)
-    show (AAp f x) = printf "(%s %s)" (show f) (show x)
-    show (AIf b e1 e2) = printf "if %s then %s else %s" (show b) (show e1) (show e2)
-    show _ = error "impossible"
+
+instance Show (TypedExpr Name) where
+    show (LFixP t e) = case t of
+            Nothing -> s
+            Just t -> printf "%s :: %s" s (show t)
+        where s = case e of
+                Var x -> show x
+                Global x -> show x
+                Const c -> show c
+                Ap f x -> printf "(%s %s)" (show f) (show x)
+                Let x v e -> printf "let %s = %s in\n%s" (show x) (show v) (show e)
+                If b e1 e2 -> printf "if %s then %s else %s" (show b) (show e1) (show e2)
+                Fun x e -> printf "(\\%s -> %s)" (show x) (show e)
+                Fix x e -> printf "fix(\\%s -> %s)" (show x) (show e)
+
 
 
 calcVarName :: LabelledExp l Id -> LabelledExp l Name
@@ -111,7 +121,7 @@ calcVarName' (If b e1 e2) = If <$> calcVarName'' b <*> calcVarName'' e1 <*> calc
 
 
 deBruijnE :: AFT.Expr -> State (Stack Name) Expr
-deBruijnE (LFixP _ e) = LFixP () <$> case e of
+deBruijnE (LFixP t e) = LFixP t <$> case e of
     AFT.Var x -> do
         s <- get
         return $ case elemIndex x s of
