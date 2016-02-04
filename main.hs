@@ -25,7 +25,7 @@ class Show a => Evaluable a where
 
 instance Evaluable (AST.Expr.TExpr AST.Expr.Name) where
     eval = return "<no evaluation>"
-instance Evaluable (AFT.Expr.Expr AFT.Expr.Name) where
+instance Evaluable AFT.Expr.Expr where
     eval = return "<no evaluation>"
 instance Evaluable DeBruijn.Expr.Expr where
     eval = show . DeBruijn.Eval.eval

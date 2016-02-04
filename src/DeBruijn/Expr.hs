@@ -18,7 +18,7 @@ import Data.List (elemIndex)
 import Control.Monad.State (State, get, gets, evalState)
 
 import Utils (Stack, withPush, local, push)
-import AFT.Expr (Name, Value)
+import AFT.Expr (Name, Value, LFixP(..))
 import qualified AFT.Expr as AFT
 
 data AExpr v a =
@@ -30,8 +30,6 @@ data AExpr v a =
     | Fix Name a
     | Let Name a a
     | Ap a a
-
-data LFixP l f = LFixP { label :: l, expr :: f (LFixP l f) }
 
 type LExp l v = LFixP l (AExpr v)
 
@@ -107,22 +105,19 @@ calcVarName' (If b e1 e2) = If <$> calcVarName'' b <*> calcVarName'' e1 <*> calc
 
 
 
+deBruijnE :: AFT.Expr -> State (Stack Name) Expr
+deBruijnE (LFixP _ e) = LFixP () <$> case e of
+    AFT.Var x -> do
+        s <- get
+        return $ case elemIndex x s of
+            Just i -> Var i
+            Nothing -> Global x
+    AFT.Const c -> return $ Const c
+    AFT.If b e1 e2 -> If <$> deBruijnE b <*> deBruijnE e1 <*> deBruijnE e2
+    AFT.Ap f x -> Ap <$> deBruijnE f <*> deBruijnE x
+    AFT.Fun x e -> withPush x (Fun x <$> deBruijnE e)
+    AFT.Fix f e -> withPush f (Fix f <$> deBruijnE e)
+    AFT.Let x v e -> Let x <$> deBruijnE v <*> withPush x (deBruijnE e)
 
-deBruijnAE :: AFT.Expr Name -> State (Stack Name) Expr
-deBruijnAE = fmap (LFixP ()) . deBruijnE
-
-deBruijnE :: AFT.Expr Name -> State (Stack Name) (AExpr Id Expr)
-deBruijnE (AFT.Var x) = do
-    s <- get
-    return $ case elemIndex x s of
-        Just i -> Var i
-        Nothing -> Global x
-deBruijnE (AFT.Const c) = return $ Const c
-deBruijnE (AFT.If b e1 e2) = If <$> deBruijnAE b <*> deBruijnAE e1 <*> deBruijnAE e2
-deBruijnE (AFT.Ap f x) = Ap <$> deBruijnAE f <*> deBruijnAE x
-deBruijnE (AFT.Fun x e) = withPush x (Fun x <$> deBruijnAE e)
-deBruijnE (AFT.Fix f e) = withPush f (Fix f <$> deBruijnAE e)
-deBruijnE (AFT.Let x v e) = Let x <$> deBruijnAE v <*> withPush x (deBruijnAE e)
-
-deBruijn :: AFT.Expr Name -> Expr
-deBruijn e = evalState (deBruijnAE e) []
+deBruijn :: AFT.Expr -> Expr
+deBruijn e = evalState (deBruijnE e) []
