@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, FlexibleContexts, PatternSynonyms, MultiParamTypeClasses, FunctionalDependencies #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, FlexibleContexts, MultiParamTypeClasses #-}
 module DeBruijn.Expr
     ( Expr
     , AbstractExpr(..)
@@ -6,8 +6,6 @@ module DeBruijn.Expr
     , LabelledExp
     , deBruijn
     , calcVarName
-    , pattern AVar, pattern AGlobal, pattern AConst, pattern AIf
-    , pattern AFun, pattern AFix, pattern ALet, pattern AAp
     ) where
 
 import Text.Printf (printf)
@@ -38,35 +36,6 @@ type UntypedExpr v = AbstractExpr v (TypedExpr v)
 type Expr = TypedExpr Id
 
 
-
-class AST v a | a -> v where
-  proj :: a -> AbstractExpr v a
-  inj :: AbstractExpr v a -> a
-
-pattern AVar v <- (proj -> Var v) where
-        AVar v = inj (Var v)
-pattern AGlobal v <- (proj -> Global v) where
-        AGlobal v = inj (Global v)
-pattern AConst v <- (proj -> Const v) where
-        AConst v = inj (Const v)
-pattern AIf a1 a2 a3 <- (proj -> If a1 a2 a3) where
-        AIf a1 a2 a3 = inj (If a1 a2 a3)
-pattern AFun v a <- (proj -> Fun v a) where
-        AFun v a = inj (Fun v a)
-pattern AFix v a <- (proj -> Fix v a) where
-        AFix v a = inj (Fix v a)
-pattern ALet v a1 a2 <- (proj -> Let v a1 a2) where
-        ALet v a1 a2 = inj (Let v a1 a2)
-pattern AAp a1 a2 <- (proj -> Ap a1 a2) where
-        AAp a1 a2 = inj (Ap a1 a2)
-
-
-instance AST v (LabelledExp l v) where
-  proj (LFixP _ e) = e
-  inj = LFixP undefined
-
-
-
 instance Show Expr where
   show =  show . calcVarName
 
@@ -84,7 +53,6 @@ instance Show (TypedExpr Name) where
                 If b e1 e2 -> printf "if %s then %s else %s" (show b) (show e1) (show e2)
                 Fun x e -> printf "(\\%s -> %s)" (show x) (show e)
                 Fix x e -> printf "fix(\\%s -> %s)" (show x) (show e)
-
 
 
 calcVarName :: LabelledExp l Id -> LabelledExp l Name

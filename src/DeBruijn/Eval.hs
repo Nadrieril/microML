@@ -58,31 +58,31 @@ evalAp (VSysCall f) y = f y
 evalAp v _ = error $ printf "Error: attempting to evaluate %s as function" (show v)
 
 evalE :: Expr -> Eval Expr
-evalE (AVar i) = (!! i) <$> getStack
-evalE (AGlobal g) = (M.! g) <$> getGlobals
-evalE (AConst (B b)) = return $ VBool b
-evalE (AConst (I i)) = return $ VInt i
-evalE (AIf b e1 e2) = do
+evalE (expr -> Var i) = (!! i) <$> getStack
+evalE (expr -> Global g) = (M.! g) <$> getGlobals
+evalE (expr -> Const (B b)) = return $ VBool b
+evalE (expr -> Const (I i)) = return $ VInt i
+evalE (expr -> If b e1 e2) = do
     vb <- evalE b
     case vb of
         VBool True -> evalE e1
         VBool False -> evalE e2
         v -> error $ printf "Error: attempting to evaluate %s as bool" (show v)
-evalE (AFun _ e) = do
+evalE (expr -> Fun _ e) = do
     stk <- get
     return $ VFun stk e
-evalE (AFix _ e) =
+evalE (expr -> Fix _ e) =
     local $ do
         rec
             push body
             body <- evalE e
         return body
-evalE (ALet _ v e) = do
+evalE (expr -> Let _ v e) = do
     vv <- evalE v
     local $ do
         push vv
         evalE e
-evalE (AAp f x) = do
+evalE (expr -> Ap f x) = do
     vf <- evalE f
     vx <- evalE x
     evalAp vf vx
