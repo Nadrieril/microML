@@ -40,17 +40,21 @@ untyped :: UntypedExpr a -> TypedExpr a
 untyped = LFixP Nothing
 
 typeIdent :: Parser TConst
--- typeIdent = do
---     c <- upper
---     cs <- many (alphaNum <|> oneOf "_'")
---     return (c:cs)
-typeIdent = (string "Int" >> return TInt)
-        <|> (string "Bool" >> return TBool)
+typeIdent = do
+    n <- do
+        c <- upper
+        cs <- many (alphaNum <|> oneOf "_'")
+        whiteSpace
+        return (c:cs)
+    case n of
+        "Int" -> return TInt
+        "Bool" -> return TBool
+        _ -> error "unknown type"
     <?> "type identifier"
 
 typeAtom :: Parser (Mono Name)
-typeAtom = TVar <$> ident
-       <|> TConst <$> typeIdent
+typeAtom = TConst <$> typeIdent
+       <|> TVar <$> ident
     <?> "type atom"
 
 typ :: Parser (Mono Name)
