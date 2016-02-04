@@ -89,6 +89,9 @@ calcVarName'' (LFixP l e) = LFixP l <$> calcVarName' e
 
 calcVarName' :: AExpr Id (LExp l Id) -> State (Stack Name) (AExpr Name (LExp l Name))
 calcVarName' (Var i) = Var <$> gets (!! i)
+-- calcVarName' (Var i) = do
+--     AFT.Name n <- gets (!! i)
+--     return $ Var $ AFT.Name $ printf "#%d,%s" i n
 calcVarName' (Global x) = return $ Global x
 calcVarName' (Const c) = return $ Const c
 calcVarName' (Fun n e) = local $ do
@@ -97,9 +100,11 @@ calcVarName' (Fun n e) = local $ do
 calcVarName' (Fix n e) = local $ do
         push n
         Fix n <$> calcVarName'' e
-calcVarName' (Let n v e) = local $ do
+calcVarName' (Let n v e) = do
+    vv <- calcVarName'' v
+    local $ do
         push n
-        Let n <$> calcVarName'' v <*> calcVarName'' e
+        Let n <$> pure vv <*> calcVarName'' e
 calcVarName' (Ap f x) = Ap <$> calcVarName'' f <*> calcVarName'' x
 calcVarName' (If b e1 e2) = If <$> calcVarName'' b <*> calcVarName'' e1 <*> calcVarName'' e2
 
