@@ -16,7 +16,10 @@ import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
 import Control.Monad.State.Strict (State, evalState, runState, get, put, modify)
 import qualified Data.IntMap as IM
-import Utils (trace)
+import qualified Utils (trace)
+
+trace :: Show a => a -> b -> b
+trace = Utils.trace False
 
 
 type Ptr = Int

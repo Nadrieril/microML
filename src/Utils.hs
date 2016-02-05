@@ -5,9 +5,7 @@ import Control.Monad.State.Class (MonadState, put, get, modify)
 import Control.Monad.State (StateT)
 import System.IO.Unsafe (unsafePerformIO)
 
-debug = False
-
-trace x y = if debug
+trace b x y = if b
     then unsafePerformIO (print x >> return y)
     else y
 

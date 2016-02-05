@@ -10,9 +10,12 @@ import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, evalState)
 import qualified Control.Eff.State.Strict as State (get, put, modify)
 
+-- import qualified Utils (trace)
 import qualified Common.Expr as Expr (Value(..))
-import ASM.Instr
+import ASM.Instr hiding (Env)
 
+-- trace :: Show a => a -> b -> b
+-- trace = Utils.trace True
 
 get :: (Typeable a, Member (State a) r) => Proxy a -> Eff r a
 get _ = State.get
@@ -102,63 +105,66 @@ type ASMEval r e =
 
 
 evalE :: ASMEval r Value
-evalE = popM code >>= \case
-    Nothing -> pop valstack
-    -- Nothing -> do
-    --     CallStack cs <- get callstack
-    --     -- Catch missing returns
-    --     if null cs
-    --         then pop valstack
-    --         else push code Return >> evalE
-    Just c -> do
-        get code >>= T.traceShowM
-        get env >>= T.traceShowM
-        get callstack >>= T.traceShowM
-        get valstack >>= T.traceShowM
-        T.traceM ("> " ++ show c ++ "\n")
-        case c of
-            Access i -> do
-                Env e <- get env
-                push valstack (e !! i)
+evalE = do
+    get code >>= T.traceShowM
+    get env >>= T.traceShowM
+    get callstack >>= T.traceShowM
+    get valstack >>= T.traceShowM
 
-            Apply -> do
-                e <- get env
-                cde <- get code
-                push callstack (cde, e)
+    popM code >>= \case
+        Nothing -> do
+            CallStack cs <- get callstack
+            -- Catch missing returns
+            if null cs
+                then pop valstack
+                else push code Return >> evalE
 
-                Closure (cde', e') <- pop valstack
-                put code cde'
-                put env e'
+        Just c -> do
+            T.traceM ("> " ++ show c ++ "\n")
+            case c of
+                Access i -> do
+                    Env e <- get env
+                    push valstack (e !! i)
 
-                v <- pop valstack
-                push env v
+                Apply -> do
+                    e <- get env
+                    cde <- get code
+                    push callstack (cde, e)
 
-            Cur c' -> do
-                e <- get env
-                push valstack (Closure (Code c', e))
+                    Closure (cde', e') <- pop valstack
+                    put code cde'
+                    put env e'
 
-            Return -> do
-                (c', e') <- pop callstack
-                put code c'
-                put env e'
+                    v <- pop valstack
+                    push env v
 
-            Let -> pop valstack >>= push env
+                Cur c' -> do
+                    e <- get env
+                    push valstack (Closure (Code c', e))
 
-            Endlet -> void $ pop env
+                Return -> do
+                    (c', e') <- pop callstack
+                    put code c'
+                    put env e'
 
-            Branchneg i -> do
-                Value (Expr.B v) <- pop valstack
-                unless v $ replicateM_ i (pop code)
+                Let -> pop valstack >>= push env
 
-            Branch i -> replicateM_ i (pop code)
+                Endlet -> void $ pop env
 
-            Op op -> do
-                Value v1 <- pop valstack
-                Value v2 <- pop valstack
-                push valstack (Value $ evalOp op v1 v2)
+                Branchneg i -> do
+                    Value (Expr.B v) <- pop valstack
+                    unless v $ replicateM_ i (pop code)
 
-            Push v -> push valstack (Value v)
-            >> evalE
+                Branch i -> replicateM_ i (pop code)
+
+                Op op -> do
+                    Value v1 <- pop valstack
+                    Value v2 <- pop valstack
+                    push valstack (Value $ evalOp op v1 v2)
+
+                Push v -> push valstack (Value v)
+
+            evalE
 
 
 eval :: Code -> Value

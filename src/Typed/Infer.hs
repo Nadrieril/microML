@@ -10,13 +10,17 @@ import qualified Data.IntSet as IS
 import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, get, put, modify, evalState)
 
-import Utils (Stack, trace)
+import Utils (Stack)
+import qualified Utils (trace)
 import qualified Utils.UnionFind as UF
 import qualified DeBruijn.Expr as DeBruijn
 import Common.StdLib (stdLibTypes)
 import Common.Expr
 import Common.Type
 import Typed.Expr
+
+trace :: Show a => a -> b -> b
+trace = Utils.trace False
 
 type Env r e = (Member (State Int) r, Member (State (Stack Type)) r, Member (State (UF.UnionFind MonoType)) r) => Eff r e
 
