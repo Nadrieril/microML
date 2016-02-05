@@ -1,14 +1,18 @@
 {-# LANGUAGE RecursiveDo #-}
-module EvalAFT
-    ( eval
+module AFT.Eval
+    ( Env
+    , Val(..)
+    , Eval
+    , stdLib
+    , eval
     ) where
 
 import qualified Data.Map as M
 import Text.Printf (printf)
 import Control.Monad.State (get, put, modify, evalState)
 
-import IR.AFT (Expr(..), Name(..), Value(..))
-import EvalAST (Eval, Val(..), stdLib)
+import AFT.Expr (Expr(..), Name(..), Value(..))
+import AST.Eval (Eval, Env, Val(..), stdLib)
 
 
 evalAp :: Val Expr -> Val Expr -> Eval Expr

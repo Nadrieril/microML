@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
-module IR.AST
+module AST.Expr
     ( Name(..)
     , Value(..)
     , Expr(..)

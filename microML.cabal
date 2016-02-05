@@ -8,11 +8,12 @@ executable main
     main-is: main.hs
     hs-source-dirs: ., src
     other-modules:
-          Parse
-          IR.AST
-          EvalAST
-          IR.AFT
-          EvalAFT
+          AST.Parse
+          AST.Expr
+          AST.Eval
+          AFT.Expr
+          AFT.Eval
+          DeBruijn.Expr
 
     build-depends:
           base
