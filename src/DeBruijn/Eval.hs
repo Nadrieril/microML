@@ -14,7 +14,7 @@ import Control.Monad.State (StateT, evalStateT, get, put)
 
 import Utils (push, local)
 import qualified StdLib (stdLib)
-import DeBruijn.Expr (Expr(..), Value(..), Name(..))
+import DeBruijn.Expr
 
 
 type Env e = [Val e]
@@ -56,36 +56,36 @@ evalAp (VFun stk e) y =
 evalAp (VSysCall f) y = f y
 evalAp v _ = error $ printf "Error: attempting to evaluate %s as function" (show v)
 
-
 evalE :: Expr -> Eval Expr
-evalE (Var i) = (!! i) <$> getStack
-evalE (Global g) = (M.! g) <$> getGlobals
-evalE (Const (B b)) = return $ VBool b
-evalE (Const (I i)) = return $ VInt i
-evalE (If b e1 e2) = do
+evalE (AVar i) = (!! i) <$> getStack
+evalE (AGlobal g) = (M.! g) <$> getGlobals
+evalE (AConst (B b)) = return $ VBool b
+evalE (AConst (I i)) = return $ VInt i
+evalE (AIf b e1 e2) = do
     vb <- evalE b
     case vb of
         VBool True -> evalE e1
         VBool False -> evalE e2
         v -> error $ printf "Error: attempting to evaluate %s as bool" (show v)
-evalE (Fun e) = do
+evalE (AFun _ e) = do
     stk <- get
     return $ VFun stk e
-evalE (Fix e) =
+evalE (AFix _ e) =
     local $ do
         rec
             push body
             body <- evalE e
         return body
-evalE (Ap f x) = do
-    vf <- evalE f
-    vx <- evalE x
-    evalAp vf vx
-evalE (Let v e) = do
+evalE (ALet _ v e) = do
     vv <- evalE v
     local $ do
         push vv
         evalE e
+evalE (AAp f x) = do
+    vf <- evalE f
+    vx <- evalE x
+    evalAp vf vx
+evalE _ = error "impossible"
 
 eval :: Expr -> Val Expr
 eval e = runReader (evalStateT (evalE e) []) globals

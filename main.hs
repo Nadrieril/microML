@@ -18,6 +18,9 @@ import DeBruijn.Expr (deBruijn)
 import qualified DeBruijn.Expr (Expr)
 import qualified DeBruijn.Eval (eval)
 
+import Typed.Infer (inferType)
+import qualified Typed.Expr (Expr)
+
 
 class Show a => Evaluable a where
     eval :: a -> String
@@ -28,6 +31,8 @@ instance Evaluable (AFT.Expr.Expr AFT.Expr.Name) where
     eval = show . AFT.Eval.eval
 instance Evaluable DeBruijn.Expr.Expr where
     eval = show . DeBruijn.Eval.eval
+instance Evaluable Typed.Expr.Expr where
+    eval = return "<no evaluation>"
 
 testCode :: Int -> String -> IO ()
 testCode stage code =
@@ -42,6 +47,9 @@ testCode stage code =
 
         let dBjn = deBruijn aft
         printStage 3 stage dBjn
+
+        let typed = inferType dBjn
+        printStage 4 stage typed
 
     where printStage i stage tree =
             when (stage == 0 || stage == i) $ do
