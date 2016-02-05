@@ -19,6 +19,8 @@ import qualified DeBruijn.Eval (eval)
 import Typed.Infer (inferType)
 import qualified Typed.Expr (Expr)
 
+import qualified ASM.Eval as ASM
+
 
 class Show a => Evaluable a where
     eval :: a -> String
@@ -71,6 +73,8 @@ main = do
 
     putStrLn ""
     testFile 0 "tests/test.ml"
+
+    print $ ASM.eval ASM.example
 
     where
         testFile stage file = do
