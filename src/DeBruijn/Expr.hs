@@ -1,12 +1,12 @@
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, FlexibleContexts, PatternSynonyms, ViewPatterns, MultiParamTypeClasses, FunctionalDependencies #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, FlexibleContexts, PatternSynonyms, MultiParamTypeClasses, FunctionalDependencies #-}
 module DeBruijn.Expr
     ( Name(..)
     , Value(..)
     , Expr
-    , AExpr(..)
+    , AbstractExpr(..)
     , Id
     , LFixP (..)
-    , LExp
+    , LabelledExp
     , deBruijn
     , calcVarName
     , pattern AVar, pattern AGlobal, pattern AConst, pattern AIf
@@ -18,10 +18,11 @@ import Data.List (elemIndex)
 import Control.Monad.State (State, get, gets, evalState)
 
 import Utils (Stack, withPush, local, push)
-import AFT.Expr (Name, Value)
+import AFT.Expr (Name, Value, LFixP(..))
 import qualified AFT.Expr as AFT
+import Typed.Type
 
-data AExpr v a =
+data AbstractExpr v a =
       Var v
     | Global Name
     | Const Value
@@ -31,15 +32,20 @@ data AExpr v a =
     | Let Name a a
     | Ap a a
 
-data LFixP l f = LFixP { label :: l, expr :: f (LFixP l f) }
+type LabelledExp l v = LFixP l (AbstractExpr v)
 
-type LExp l v = LFixP l (AExpr v)
+type Id = Int
+
+type TypedExpr v = LabelledExp (Maybe (Mono Name)) v
+-- type TypedExpr v = LabelledExp (Maybe MonoType) v
+type UntypedExpr v = AbstractExpr v (TypedExpr v)
+type Expr = TypedExpr Id
 
 
 
 class AST v a | a -> v where
-  proj :: a -> AExpr v a
-  inj :: AExpr v a -> a
+  proj :: a -> AbstractExpr v a
+  inj :: AbstractExpr v a -> a
 
 pattern AVar v <- (proj -> Var v) where
         AVar v = inj (Var v)
@@ -59,38 +65,43 @@ pattern AAp a1 a2 <- (proj -> Ap a1 a2) where
         AAp a1 a2 = inj (Ap a1 a2)
 
 
-instance AST v (LExp l v) where
+instance AST v (LabelledExp l v) where
   proj (LFixP _ e) = e
   inj = LFixP undefined
 
 
-type Id = Int
-
-type Expr = LExp () Id
 
 instance Show Expr where
   show =  show . calcVarName
 
-instance Show (LExp () Name) where
-    show (AVar i) = show i
-    show (AGlobal x) = show x
-    show (AConst c) = show c
-    show (AFun n e) = printf "(\\%s -> %s)" (show n) (show e)
-    show (AFix n e) = printf "fix(\\%s -> %s)" (show n) (show e)
-    show (ALet n v e) = printf "let %s = %s in\n%s" (show n) (show v) (show e)
-    show (AAp f x) = printf "(%s %s)" (show f) (show x)
-    show (AIf b e1 e2) = printf "if %s then %s else %s" (show b) (show e1) (show e2)
-    show _ = error "impossible"
+
+instance Show (TypedExpr Name) where
+    show (LFixP t e) = case t of
+            Nothing -> s
+            Just t -> printf "%s :: %s" s (show t)
+        where s = case e of
+                Var x -> show x
+                Global x -> show x
+                Const c -> show c
+                Ap f x -> printf "(%s %s)" (show f) (show x)
+                Let x v e -> printf "let %s = %s in\n%s" (show x) (show v) (show e)
+                If b e1 e2 -> printf "if %s then %s else %s" (show b) (show e1) (show e2)
+                Fun x e -> printf "(\\%s -> %s)" (show x) (show e)
+                Fix x e -> printf "fix(\\%s -> %s)" (show x) (show e)
 
 
-calcVarName :: LExp l Id -> LExp l Name
+
+calcVarName :: LabelledExp l Id -> LabelledExp l Name
 calcVarName e = evalState (calcVarName'' e) []
 
-calcVarName'' :: LExp l Id -> State (Stack Name) (LExp l Name)
+calcVarName'' :: LabelledExp l Id -> State (Stack Name) (LabelledExp l Name)
 calcVarName'' (LFixP l e) = LFixP l <$> calcVarName' e
 
-calcVarName' :: AExpr Id (LExp l Id) -> State (Stack Name) (AExpr Name (LExp l Name))
+calcVarName' :: AbstractExpr Id (LabelledExp l Id) -> State (Stack Name) (AbstractExpr Name (LabelledExp l Name))
 calcVarName' (Var i) = Var <$> gets (!! i)
+-- calcVarName' (Var i) = do
+--     AFT.Name n <- gets (!! i)
+--     return $ Var $ AFT.Name $ printf "#%d,%s" i n
 calcVarName' (Global x) = return $ Global x
 calcVarName' (Const c) = return $ Const c
 calcVarName' (Fun n e) = local $ do
@@ -99,30 +110,29 @@ calcVarName' (Fun n e) = local $ do
 calcVarName' (Fix n e) = local $ do
         push n
         Fix n <$> calcVarName'' e
-calcVarName' (Let n v e) = local $ do
+calcVarName' (Let n v e) = do
+    vv <- calcVarName'' v
+    local $ do
         push n
-        Let n <$> calcVarName'' v <*> calcVarName'' e
+        Let n <$> pure vv <*> calcVarName'' e
 calcVarName' (Ap f x) = Ap <$> calcVarName'' f <*> calcVarName'' x
 calcVarName' (If b e1 e2) = If <$> calcVarName'' b <*> calcVarName'' e1 <*> calcVarName'' e2
 
 
 
+deBruijnE :: AFT.Expr -> State (Stack Name) Expr
+deBruijnE (LFixP t e) = LFixP t <$> case e of
+    AFT.Var x -> do
+        s <- get
+        return $ case elemIndex x s of
+            Just i -> Var i
+            Nothing -> Global x
+    AFT.Const c -> return $ Const c
+    AFT.If b e1 e2 -> If <$> deBruijnE b <*> deBruijnE e1 <*> deBruijnE e2
+    AFT.Ap f x -> Ap <$> deBruijnE f <*> deBruijnE x
+    AFT.Fun x e -> withPush x (Fun x <$> deBruijnE e)
+    AFT.Fix f e -> withPush f (Fix f <$> deBruijnE e)
+    AFT.Let x v e -> Let x <$> deBruijnE v <*> withPush x (deBruijnE e)
 
-deBruijnAE :: AFT.Expr Name -> State (Stack Name) Expr
-deBruijnAE = fmap (LFixP ()) . deBruijnE
-
-deBruijnE :: AFT.Expr Name -> State (Stack Name) (AExpr Id Expr)
-deBruijnE (AFT.Var x) = do
-    s <- get
-    return $ case elemIndex x s of
-        Just i -> Var i
-        Nothing -> Global x
-deBruijnE (AFT.Const c) = return $ Const c
-deBruijnE (AFT.If b e1 e2) = If <$> deBruijnAE b <*> deBruijnAE e1 <*> deBruijnAE e2
-deBruijnE (AFT.Ap f x) = Ap <$> deBruijnAE f <*> deBruijnAE x
-deBruijnE (AFT.Fun x e) = withPush x (Fun x <$> deBruijnAE e)
-deBruijnE (AFT.Fix f e) = withPush f (Fix f <$> deBruijnAE e)
-deBruijnE (AFT.Let x v e) = Let x <$> deBruijnAE v <*> withPush x (deBruijnAE e)
-
-deBruijn :: AFT.Expr Name -> Expr
-deBruijn e = evalState (deBruijnAE e) []
+deBruijn :: AFT.Expr -> Expr
+deBruijn e = evalState (deBruijnE e) []

@@ -1,14 +1,16 @@
 {-# LANGUAGE FlexibleContexts, RankNTypes #-}
 module AST.Parse (parseML) where
 
-import Control.Monad (when)
+import Data.Function (on)
+import Data.Maybe (isJust)
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Language
 import qualified Text.ParserCombinators.Parsec.Token as Token
 
-import AST.Expr hiding (Infix)
+import AST.Expr hiding (Infix, expr)
 import qualified AST.Expr as AST
+import Typed.Type
 
 -----------------------------------------------------------------------------
 languageDef =
@@ -21,20 +23,54 @@ languageDef =
                                   , "true" , "false"
                                   , "and", "or", "not"
                                   ]
-        , Token.reservedOpNames = ["=", "+", "-", "*", "/", "<", ">", "==", "->" ]
+        , Token.reservedOpNames = ["::", "->", "=", "+", "-", "*", "/", "<", ">", "==" ]
     }
 
 lexer = Token.makeTokenParser languageDef
 
-ident      = Token.identifier lexer -- parses an identifier
+ident      = Name <$> Token.identifier lexer -- parses an identifier
 reserved   = Token.reserved   lexer -- parses a reserved name
 reservedOp = Token.reservedOp lexer -- parses an operator
 parens     = Token.parens     lexer -- parses surrounding parenthesis
 natural    = Token.natural    lexer -- parses an natural
 whiteSpace = Token.whiteSpace lexer -- parses whitespace
 
+-----------------------
+untyped :: UntypedExpr a -> TypedExpr a
+untyped = LFixP Nothing
 
-operators :: forall st. [[Operator Char st (Expr String)]]
+typeIdent :: Parser TConst
+typeIdent = do
+    n <- do
+        c <- upper
+        cs <- many (alphaNum <|> oneOf "_'")
+        whiteSpace
+        return (c:cs)
+    case n of
+        "Int" -> return TInt
+        "Bool" -> return TBool
+        _ -> error "unknown type"
+    <?> "type identifier"
+
+typeAtom :: Parser (Mono Name)
+typeAtom = TConst <$> typeIdent
+       <|> TVar <$> ident
+    <?> "type atom"
+
+typeOperators :: forall st. [[Operator Char st (Mono Name)]]
+typeOperators = [ [fun] ]
+    where
+        fun = Infix (reservedOp "->" >> return (:->)) AssocRight
+
+typ :: Parser (Mono Name)
+typ = buildExpressionParser typeOperators typeAtom
+    <?> "type annotation"
+
+typed :: Parser (UntypedExpr Name) -> Parser (TypedExpr Name)
+typed p = flip LFixP <$> p <*> optionMaybe (reservedOp "::" >> typ)
+
+-----------------------
+operators :: forall st. [[Operator Char st (UntypedExpr Name)]]
 operators = [ [neg]
             , [mul, div]
             , [add, sub]
@@ -43,8 +79,9 @@ operators = [ [neg]
             , [eq] ]
     where
         f c v = reservedOp c >> return v
-        neg = Prefix (f "-" (AST.Infix "-" (Const $ I 0)))
-        g o = Infix (f o (AST.Infix o)) AssocLeft
+        inf o = AST.Infix (Name o) `on` untyped
+        neg = Prefix (f "-" (inf "-" (Const $ I 0)))
+        g o = Infix (f o (inf o)) AssocLeft
         mul = g "*"
         div = g "/"
         add = g "+"
@@ -54,63 +91,58 @@ operators = [ [neg]
         eq =  g "=="
 
 
-letin :: Bool -> Parser (Expr String)
-letin b = do
+boolean :: Parser (UntypedExpr Name)
+boolean = fmap (Const . B) (
+          (reserved "true" >> return True)
+      <|> (reserved "false" >> return False)
+      <?> "boolean")
+
+integer :: Parser (UntypedExpr Name)
+integer = (Const . I) <$> natural
+    <?> "integer"
+
+variable :: Parser (UntypedExpr Name)
+variable = Var <$> ident
+    <?> "variable"
+
+letin :: Parser (UntypedExpr Name)
+letin = do
     reserved "let"
-    when b $ reserved "rec"
-    x <- ident
-    reservedOp "="
-    v <- expr
-    reserved "in"
-    e <- expr
-    return $ (if b then LetR else Let) x v e
+    b <- optionMaybe $ reserved "rec"
+    (if isJust b then LetR else Let)
+        <$> ident
+        <*> (reservedOp "=" >> expr)
+        <*> (reserved "in" >> expr)
+    <?> "let"
 
-letnonrec :: Parser (Expr String)
-letnonrec = letin False
-letrec :: Parser (Expr String)
-letrec = letin True
+ifthenelse :: Parser (UntypedExpr Name)
+ifthenelse = If <$> (reserved "if" >> expr)
+                <*> (reserved "then" >> expr)
+                <*> (reserved "else" >> expr)
+    <?> "if"
+
+lambda :: Parser (UntypedExpr Name)
+lambda = Fun <$> (reserved "fun" >> ident)
+             <*> (reservedOp "->" >> expr)
+    <?> "lambda"
 
 
-ifthenelse :: Parser (Expr String)
-ifthenelse = do
-    reserved "if"
-    b <- expr
-    reserved "then"
-    e1 <- expr
-    reserved "else"
-    e2 <- expr
-    return $ If b e1 e2
-
-lambda :: Parser (Expr String)
-lambda = do
-    reserved "fun"
-    x <- ident
-    reservedOp "->"
-    e <- expr
-    return $ Fun x e
-
-boolean :: Parser (Expr String)
-boolean = (reserved "true" >> return (Const $ B True))
-      <|> (reserved "false" >> return (Const $ B False))
-
-atom :: Parser (Expr String)
-atom =  parens expr
-    <|> try letnonrec
-    <|> letrec
+atom :: Parser (UntypedExpr Name)
+atom =  (Wrap <$> parens expr)
+    <|> letin
     <|> ifthenelse
     <|> lambda
     <|> boolean
-    <|> (Const . I) <$> natural
-    <|> Var <$> ident
+    <|> integer
+    <|> variable
     <?> "atom"
 
-funAp :: Parser (Expr String)
-funAp = foldl1 Ap <$> many1 atom
+funAp :: Parser (UntypedExpr Name)
+funAp = foldl1 (Ap `on` untyped) <$> many1 atom <?> "function application"
 
-expr :: Parser (Expr String)
-expr = buildExpressionParser operators funAp
-            <?> "expression"
+expr :: Parser Expr
+expr = typed (buildExpressionParser operators funAp <?> "expression")
 
 
-parseML :: String -> Either ParseError (Expr Name)
-parseML s = fmap Name <$> parse (whiteSpace >> expr) "(unknown)" s
+parseML :: String -> Either ParseError Expr
+parseML = parse (whiteSpace >> expr) "Parse error"

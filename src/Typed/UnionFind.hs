@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns, RecordWildCards, FlexibleContexts #-}
+{-# LANGUAGE BangPatterns, FlexibleContexts #-}
 module Typed.UnionFind (
       UnionFind
     , empty

@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric, DeriveFunctor, TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE DeriveGeneric #-}
 module Typed.Type
     ( TId
     , TConst(..)
@@ -41,19 +41,19 @@ instance Show TConst where
     show TBool = "Bool"
     show TInt = "Int"
 
-instance Show MonoType where
+instance Show a => Show (Mono a) where
     show (TConst t) = show t
-    show (TVar i) = printf "#%d" i
+    show (TVar v) = printf "#%s" (show v)
     show (t1 :-> t2) = printf "(%s -> %s)" (show t1) (show t2)
 
-instance Show Type where
+instance Show a => Show (Poly a) where
     show (Mono t) = show t
-    show (Bound i t) = printf "\\#%d.%s" i (show t)
+    show (Bound v t) = printf "\\#%s.%s" (show v) (show t)
 
 
 instance Hashable TConst
-instance Hashable MonoType
-instance Hashable Type
+instance Hashable a => Hashable (Mono a)
+instance Hashable a => Hashable (Poly a)
 
 
 free :: Type -> IS.IntSet

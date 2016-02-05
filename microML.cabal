@@ -10,9 +10,7 @@ executable main
     other-modules:
           AST.Parse
           AST.Expr
-          AST.Eval
           AFT.Expr
-          AFT.Eval
           DeBruijn.Expr
           DeBruijn.Eval
           Typed.Type
@@ -22,6 +20,12 @@ executable main
           StdLib
           Utils
 
+    extensions:
+        DeriveFunctor
+        LambdaCase
+        RecordWildCards
+        ScopedTypeVariables
+        ViewPatterns
 
     build-depends:
           base
