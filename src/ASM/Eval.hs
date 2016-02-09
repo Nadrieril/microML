@@ -174,24 +174,3 @@ eval c = run $
     evalState (ValStack []) $
     evalState (CallStack [])
     evalE
-
-
-example = Code [
-        Push (Expr.I 5),
-        Push (Expr.I 1),
-        Let,
-        Cur [
-            Access 0,
-            Access 1,
-            Branch 1,
-            Push (Expr.I $ -50),
-            Push (Expr.B False),
-            Branchneg 1,
-            Push (Expr.I $ -1000),
-            Op Plus,
-            Return
-        ],
-        Apply,
-        Push (Expr.I 7),
-        Op Mult
-    ]
