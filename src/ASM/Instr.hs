@@ -5,14 +5,12 @@ module ASM.Instr where
 import Control.Eff (Member, Eff, run)
 import Control.Eff.Writer.Strict (Writer, tell, runWriter)
 
-import Common.Expr (Name(..), Value(..), LFixP(..))
+import Common.Expr (Name(..), Value(..), SysCall(..), LFixP(..))
+import qualified Common.StdLib as Std (getSysCall)
 import qualified Typed.Expr as Typed (Expr, AbstractExpr(..))
 
 
 type Id = Int
-
-data BinOp = Plus | Minus | Mult | Div | And | Or | Eq
-    deriving (Show)
 
 data Instr =
       Access Id
@@ -24,7 +22,7 @@ data Instr =
     | Endlet
     | Branchneg Id
     | Branch Id
-    | Op BinOp
+    | SysCall SysCall
     | Push Value
     deriving (Show)
 
@@ -34,17 +32,8 @@ type Env r e = (Member (Writer Instr) r) => Eff r e
 tellall :: [Instr] -> Env r ()
 tellall = mapM_ tell
 
-getBinOp :: Name -> Instr
-getBinOp (Name x) = case x of
-    "+" -> bin Plus
-    "-" -> bin Minus
-    "*" -> bin Mult
-    "/" -> bin Div
-    "and" -> bin And
-    "or" -> bin Or
-    "==" -> bin Eq
-    x -> error $ "unknown global : " ++ x
-    where bin o = Cur [Cur [Access 0, Access 1, Op o]]
+getSysCall :: Name -> Instr
+getSysCall x = Cur [Cur [Access 0, Access 1, SysCall (Std.getSysCall x)]]
 
 compileE :: Typed.Expr -> Env r ()
 compileE (expr -> e) = case e of
@@ -52,7 +41,7 @@ compileE (expr -> e) = case e of
 
     Typed.Var x -> tell $ Access x
 
-    Typed.Global x -> tell $ getBinOp x
+    Typed.Global x -> tell $ getSysCall x
 
     Typed.If b e1 e2 -> do
         let c1 = compile e1

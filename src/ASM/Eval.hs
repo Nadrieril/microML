@@ -11,7 +11,9 @@ import Control.Eff.State.Strict (State, evalState)
 import Utils.ProxyStateEff (get, put, modify)
 
 -- import qualified Utils (trace)
+import Common.Expr (SysCall(..))
 import qualified Common.Expr as Expr (Value(..))
+import qualified Common.StdLib as Std
 import ASM.Instr hiding (Env)
 
 -- trace :: Show a => a -> b -> b
@@ -65,26 +67,14 @@ callstack :: Proxy CallStack
 callstack = Proxy
 
 
+evalStd :: Std.StdLibValue -> ASMEval r Value
+evalStd (Std.Val v) = return (Value v)
+evalStd (Std.Fun f) = do
+    Value v <- pop valstack
+    evalStd (f v)
 
-evalOp :: BinOp -> Expr.Value -> Expr.Value -> Expr.Value
-evalOp o = case o of
-    Plus -> withInt (+)
-    Minus -> withInt (-)
-    Mult -> withInt (*)
-    Div -> withInt div
-    And -> withBool (&&)
-    Or -> withBool (||)
-    Eq -> eq
-    where
-        withInt f (Expr.I x) (Expr.I y) = Expr.I $ f x y
-        withInt _ _ _ = error "impossible"
-
-        withBool f (Expr.B x) (Expr.B y) = Expr.B $ f x y
-        withBool _ _ _ = error "impossible"
-
-        eq (Expr.I x) (Expr.I y) = Expr.B (x==y)
-        eq (Expr.B x) (Expr.B y) = Expr.B (x==y)
-        eq _ _ = error "impossible"
+evalSysCall :: SysCall -> ASMEval r Value
+evalSysCall sc = evalStd $ fst $ Std.sysCallToValue sc
 
 
 type ASMEval r e =
@@ -158,10 +148,7 @@ evalE = do
 
                 Branch i -> replicateM_ i (pop code)
 
-                Op op -> do
-                    Value v1 <- pop valstack
-                    Value v2 <- pop valstack
-                    push valstack (Value $ evalOp op v1 v2)
+                SysCall sc -> evalSysCall sc >>= push valstack
 
                 Push v -> push valstack (Value v)
 

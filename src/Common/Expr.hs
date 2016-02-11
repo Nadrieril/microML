@@ -14,4 +14,8 @@ instance Show Value where
   show (I x) = show x
 
 
+data SysCall = Plus | Minus | Mult | Div | And | Or | Eq
+    deriving (Show)
+
+
 data LFixP l f = LFixP { label :: l, expr :: f (LFixP l f) }
