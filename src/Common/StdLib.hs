@@ -1,10 +1,14 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
-module Common.StdLib where
+module Common.StdLib
+    ( StdLibValue(..)
+    , getSysCall
+    , sysCallToValue
+    , sysCallToType
+    )
+where
 
-import qualified Data.Map as M
 import Data.Proxy (Proxy(..))
 import Text.Printf (printf)
-import Control.Arrow ((&&&))
 
 import Common.Expr
 import Common.Type (TConst(..), Mono(..), Poly(..), MonoType, Type)
@@ -50,29 +54,14 @@ instance StdWrappable a => StdWrappable (Bool -> a) where
     toValue f = Fun $ \(B x) -> toValue (f x)
 
 
-stdLib :: M.Map Name (Value -> Value -> Value)
-stdLib = fmap binf stdLib'
-    where
-      binf :: StdLibValue -> Value -> Value -> Value
-      binf stdv x y =
-          let Fun f = stdv
-          in let Fun g = f x
-          in let Val v = g y
-          in v
+sysCallToValue :: SysCall -> StdLibValue
+sysCallToValue = fst . sysCallToValType
+sysCallToType :: SysCall -> Type
+sysCallToType = snd . sysCallToValType
 
-stdLib' :: M.Map Name StdLibValue
-stdLib' = fmap fst stdLibWithTypes
 
-stdLibTypes :: M.Map Name Type
-stdLibTypes = fmap snd stdLibWithTypes
-
-stdLibWithTypes :: M.Map Name (StdLibValue, Type)
-stdLibWithTypes = M.fromList $
-    fmap ((id &&& sysCallToValue . getSysCall) . Name)
-    ["+", "-", "*", "/", "or", "and", "=="]
-
-sysCallToValue :: SysCall -> (StdLibValue, Type)
-sysCallToValue sc = case sc of
+sysCallToValType :: SysCall -> (StdLibValue, Type)
+sysCallToValType sc = case sc of
         Plus -> wrap ((+) :: Integer -> Integer -> Integer)
         Minus -> wrap ((-) :: Integer -> Integer -> Integer)
         Mult -> wrap ((*) :: Integer -> Integer -> Integer)

@@ -14,7 +14,7 @@ import Utils (Stack)
 import qualified Utils (trace)
 import qualified Utils.UnionFind as UF
 import qualified DeBruijn.Expr as DeBruijn
-import Common.StdLib (stdLibTypes)
+import qualified Common.StdLib as StdLib
 import Common.Expr
 import Common.Type
 import Typed.Expr
@@ -129,7 +129,7 @@ inferTypeE (LFixP t e) =
                 return $ LFixP s (Var x)
 
             DeBruijn.Global x -> do
-                let t = stdLibTypes M.! x
+                let t = StdLib.sysCallToType $ StdLib.getSysCall x
                 s <- inst t
                 return $ LFixP s (Global x)
 

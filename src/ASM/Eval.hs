@@ -74,7 +74,7 @@ evalStd (Std.Fun f) = do
     evalStd (f v)
 
 evalSysCall :: SysCall -> ASMEval r Value
-evalSysCall sc = evalStd $ fst $ Std.sysCallToValue sc
+evalSysCall sc = evalStd $ Std.sysCallToValue sc
 
 
 type ASMEval r e =

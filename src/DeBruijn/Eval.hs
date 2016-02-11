@@ -6,12 +6,11 @@ module DeBruijn.Eval
     , eval
     ) where
 
-import qualified Data.Map as M
 import Text.Printf (printf)
 import Control.Monad.State (State, evalState, get, put)
 
 import Utils (push, local)
-import qualified Common.StdLib as StdLib (stdLib)
+import qualified Common.StdLib as StdLib
 import Common.Expr
 import DeBruijn.Expr
 
@@ -32,17 +31,17 @@ instance Show e => Show (Val e) where
 
 type Eval e = State (Env e) (Val e)
 
-globals :: M.Map Name (Val Expr)
-globals = fmap f StdLib.stdLib
+
+evalSysCall :: Name -> Val Expr
+evalSysCall sc = aux $ StdLib.sysCallToValue $ StdLib.getSysCall sc
     where
         tr (VInt i) = I i
         tr (VBool b) = B b
         tr v = error $ printf "Error: attempting to evaluate %s as value" (show v)
         tr' (I i) = VInt i
         tr' (B b) = VBool b
-        f fop = let fop' v1 v2 = tr' (fop (tr v1) (tr v2)) in
-            VSysCall $ \v1 -> (return $ VSysCall $ \v2 -> return $ fop' v1 v2)
-
+        aux (StdLib.Val v) = tr' v
+        aux (StdLib.Fun f) = VSysCall (return . aux . f . tr)
 
 evalAp :: Val Expr -> Val Expr -> Eval Expr
 evalAp (VFun stk e) y =
@@ -55,7 +54,7 @@ evalAp v _ = error $ printf "Error: attempting to evaluate %s as function" (show
 
 evalE :: Expr -> Eval Expr
 evalE (expr -> Var i) = (!! i) <$> get
-evalE (expr -> Global g) = return $ globals M.! g
+evalE (expr -> Global g) = return $ evalSysCall g
 evalE (expr -> Const (B b)) = return $ VBool b
 evalE (expr -> Const (I i)) = return $ VInt i
 evalE (expr -> If b e1 e2) = do
