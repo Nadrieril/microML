@@ -6,11 +6,9 @@ module DeBruijn.Eval
     , eval
     ) where
 
-import Control.Monad.Reader (Reader, runReader)
-import Control.Monad.Reader.Class (ask)
 import qualified Data.Map as M
 import Text.Printf (printf)
-import Control.Monad.State (StateT, evalStateT, get, put)
+import Control.Monad.State (State, evalState, get, put)
 
 import Utils (push, local)
 import qualified Common.StdLib as StdLib (stdLib)
@@ -32,9 +30,7 @@ instance Show e => Show (Val e) where
   show (VFun _ e) = printf "VFun(\\%s)" (show e)
   show VSysCall{} = printf "VSysCall"
 
-type Eval e = StateT (Env e) (Reader (M.Map Name (Val Expr))) (Val e)
-getStack = get
-getGlobals = ask
+type Eval e = State (Env e) (Val e)
 
 globals :: M.Map Name (Val Expr)
 globals = fmap f StdLib.stdLib
@@ -58,8 +54,8 @@ evalAp (VSysCall f) y = f y
 evalAp v _ = error $ printf "Error: attempting to evaluate %s as function" (show v)
 
 evalE :: Expr -> Eval Expr
-evalE (expr -> Var i) = (!! i) <$> getStack
-evalE (expr -> Global g) = (M.! g) <$> getGlobals
+evalE (expr -> Var i) = (!! i) <$> get
+evalE (expr -> Global g) = return $ globals M.! g
 evalE (expr -> Const (B b)) = return $ VBool b
 evalE (expr -> Const (I i)) = return $ VInt i
 evalE (expr -> If b e1 e2) = do
@@ -89,4 +85,4 @@ evalE (expr -> Ap f x) = do
 evalE _ = error "impossible"
 
 eval :: Expr -> Val Expr
-eval e = runReader (evalStateT (evalE e) []) globals
+eval e = evalState (evalE e) []
