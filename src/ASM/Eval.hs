@@ -8,7 +8,7 @@ import qualified Debug.Trace as T
 import Control.Monad (replicateM_, void, unless)
 import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, evalState)
-import qualified Control.Eff.State.Strict as State (get, put, modify)
+import Utils.ProxyStateEff (get, put, modify)
 
 -- import qualified Utils (trace)
 import qualified Common.Expr as Expr (Value(..))
@@ -16,15 +16,6 @@ import ASM.Instr hiding (Env)
 
 -- trace :: Show a => a -> b -> b
 -- trace = Utils.trace True
-
-get :: (Typeable a, Member (State a) r) => Proxy a -> Eff r a
-get _ = State.get
-
-put :: (Typeable a, Member (State a) r) => Proxy a -> a -> Eff r ()
-put _ = State.put
-
-modify :: (Typeable a, Member (State a) r) => Proxy a -> (a -> a) -> Eff r ()
-modify _ = State.modify
 
 type Stack a = [a]
 

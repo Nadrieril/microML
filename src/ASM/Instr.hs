@@ -3,7 +3,6 @@
 module ASM.Instr where
 
 import Control.Eff (Member, Eff, run)
-import Control.Eff.State.Strict (State, get, put, modify, evalState)
 import Control.Eff.Writer.Strict (Writer, tell, runWriter)
 
 import Common.Expr (Name(..), Value(..), LFixP(..))
