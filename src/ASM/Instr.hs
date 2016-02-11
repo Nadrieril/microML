@@ -18,6 +18,7 @@ data Instr =
       Access Id
     | Apply
     | Cur [Instr]
+    | Rec [Instr]
     | Return
     | Let
     | Endlet
@@ -69,8 +70,8 @@ compileE (expr -> e) = case e of
 
     Typed.Fun _ e -> tell $ Cur (compile e)
 
-    -- Typed.Fix _ e -> tell $ Fix (compile e)
-    Typed.Fix _ _ -> error "cannot compile recursive function"
+    Typed.Fix _ (expr -> Typed.Fun _ e) -> tell $ Rec (compile e)
+    Typed.Fix _ _ -> error "cannot compile arbitrary recursive definition"
 
     Typed.Let _ v e -> do
         compileE v

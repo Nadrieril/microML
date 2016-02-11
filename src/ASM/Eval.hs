@@ -42,7 +42,7 @@ pop :: (Stackable b a, Typeable a, Member (State a) r) => Proxy a -> Eff r b
 pop p = fromJust <$> popM p
 
 
-data Value = Value Expr.Value | Closure (Code, Env)
+data Value = Value Expr.Value | Closure (Code, Env) | RecClosure (Code, Env)
     deriving (Show)
 
 newtype Code = Code (Stack Instr)
@@ -122,9 +122,15 @@ evalE = do
                     cde <- get code
                     push callstack (cde, e)
 
-                    Closure (cde', e') <- pop valstack
-                    put code cde'
-                    put env e'
+                    pop valstack >>= \case
+                        Closure (cde', e') -> do
+                            put code cde'
+                            put env e'
+                        RecClosure (cde', e') -> do
+                            put code cde'
+                            put env e'
+                            push env (RecClosure (cde', e'))
+                        _ -> return ()
 
                     v <- pop valstack
                     push env v
@@ -132,6 +138,10 @@ evalE = do
                 Cur c' -> do
                     e <- get env
                     push valstack (Closure (Code c', e))
+
+                Rec c' -> do
+                    e <- get env
+                    push valstack (RecClosure (Code c', e))
 
                 Return -> do
                     (c', e') <- pop callstack
