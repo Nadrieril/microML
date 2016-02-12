@@ -18,14 +18,12 @@ import DBT.Expr
 type Env e = [Val e]
 
 data Val e =
-    VInt Integer
-  | VBool Bool
+    Val Value
   | VFun (Env e) e
   | VSysCall (Val e -> Eval e)
 
 instance Show e => Show (Val e) where
-  show (VInt i) = printf "VInt %s" (show i)
-  show (VBool b) = printf "VBool %s" (show b)
+  show (Val x) = printf "Val %s" (show x)
   show (VFun _ e) = printf "VFun(\\%s)" (show e)
   show VSysCall{} = printf "VSysCall"
 
@@ -35,13 +33,8 @@ type Eval e = State (Env e) (Val e)
 evalSysCall :: Name -> Val Expr
 evalSysCall sc = aux $ StdLib.sysCallToValue $ StdLib.getSysCall sc
     where
-        tr (VInt i) = I i
-        tr (VBool b) = B b
-        tr v = error $ printf "Error: attempting to evaluate %s as value" (show v)
-        tr' (I i) = VInt i
-        tr' (B b) = VBool b
-        aux (StdLib.Val v) = tr' v
-        aux (StdLib.Fun f) = VSysCall (return . aux . f . tr)
+        aux (StdLib.Val v) = Val v
+        aux (StdLib.Fun f) = VSysCall (\(Val x) -> return $ aux (f x))
 
 evalAp :: Val Expr -> Val Expr -> Eval Expr
 evalAp (VFun stk e) y =
@@ -55,13 +48,12 @@ evalAp v _ = error $ printf "Error: attempting to evaluate %s as function" (show
 evalE :: Expr -> Eval Expr
 evalE (expr -> Var i) = (!! i) <$> get
 evalE (expr -> Global g) = return $ evalSysCall g
-evalE (expr -> Const (B b)) = return $ VBool b
-evalE (expr -> Const (I i)) = return $ VInt i
+evalE (expr -> Const x) = return $ Val x
 evalE (expr -> If b e1 e2) = do
     vb <- evalE b
     case vb of
-        VBool True -> evalE e1
-        VBool False -> evalE e2
+        Val (B True) -> evalE e1
+        Val (B False) -> evalE e2
         v -> error $ printf "Error: attempting to evaluate %s as bool" (show v)
 evalE (expr -> Fun _ e) = do
     stk <- get
