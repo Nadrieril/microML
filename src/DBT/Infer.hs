@@ -50,14 +50,19 @@ union x y = modify (UF.union' mergeTypes x y)
 
 find :: MonoType -> Env r MonoType
 find (t1 :-> t2) = (:->) <$> find t1 <*> find t2
+find (TTuple t1 t2) = TTuple <$> find t1 <*> find t2
 find t = do
     t <- state (UF.find t)
     case t of
-        (_ :-> _) -> do -- We can unify further both sides
+        (_ :-> _) -> autoUnion t
+        (TTuple _ _) -> autoUnion t
+        _ -> return t
+    where
+        autoUnion :: MonoType -> Env r MonoType
+        autoUnion t = do -- We can unify further both sides
             t' <- find t
             t `union` t'
             return t'
-        _ -> return t
 
 getType :: Id -> Env r Type
 getType i = (!! i) <$> get
@@ -76,6 +81,7 @@ unify t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
     where
         unify_ :: MonoType -> MonoType -> Env r ()
         unify_ (t11 :-> t12) (t21 :-> t22) = unify_ t11 t21 >> unify_ t12 t22
+        unify_ (TTuple t11 t12) (TTuple t21 t22) = unify_ t11 t21 >> unify_ t12 t22
         unify_ t1@(TVar _) t2 = t1 `union` t2
         unify_ t1 t2@(TVar _) = t1 `union` t2
         unify_ t1 t2 | t1 == t2 = return ()
@@ -90,9 +96,10 @@ bind t = do
     let freeInStack = IS.unions (map free stk)
     return $ IS.foldr Bound t (freeInT IS.\\ freeInStack)
 
-typeof :: Value -> TConst
-typeof (B _) = TBool
-typeof (I _) = TInt
+typeof :: Value -> Mono a
+typeof (B _) = TConst TBool
+typeof (I _) = TConst TInt
+typeof (Tuple (x, y)) = TTuple (typeof x) (typeof y)
 
 projectType :: Mono Name -> Env r MonoType
 projectType t = evalState (M.empty :: M.Map Name Int) (f t)
@@ -108,6 +115,7 @@ projectType t = evalState (M.empty :: M.Map Name Int) (f t)
                     put (M.insert n i state)
                     return $ TVar i
         f (t1 :-> t2) = (:->) <$> f t1 <*> f t2
+        f (TTuple t1 t2) = TTuple <$> f t1 <*> f t2
 
 inferTypeE :: DBT.Expr -> Env r TypedExpr
 inferTypeE (LFixP t e) =
@@ -121,7 +129,7 @@ inferTypeE (LFixP t e) =
 
     where e' = case e of
             DBT.Const c ->
-                return $ LFixP (TConst $ typeof c) (Const c)
+                return $ LFixP (typeof c) (Const c)
 
             DBT.Var x -> do
                 t <- getType x

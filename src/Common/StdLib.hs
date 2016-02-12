@@ -22,6 +22,9 @@ getSysCall (Name x) = case x of
     "and" -> And
     "or" -> Or
     "==" -> Eq
+    "fst" -> Fst
+    "snd" -> Snd
+    "," -> Pair
     x -> error $ "unknown syscall : " ++ x
 
 
@@ -37,6 +40,8 @@ instance TypeWrappable Bool where
     toType _ = TConst TBool
 instance (TypeWrappable a, TypeWrappable b) => TypeWrappable (a -> b) where
     toType _ = toType (Proxy :: Proxy a) :-> toType (Proxy :: Proxy b)
+instance (TypeWrappable a, TypeWrappable b) => TypeWrappable (a, b) where
+    toType _ = TTuple (toType (Proxy :: Proxy a)) (toType (Proxy :: Proxy b))
 
 
 class StdWrappable a where
@@ -55,6 +60,8 @@ instance StdWrappable a => StdWrappable (Integer -> a) where
     toStdValue f = Fun $ \(I x) -> toStdValue (f x)
 instance StdWrappable a => StdWrappable (Bool -> a) where
     toStdValue f = Fun $ \(B x) -> toStdValue (f x)
+instance StdWrappable a => StdWrappable ((Value, Value) -> a) where
+    toStdValue f = Fun $ \(Tuple x) -> toStdValue (f x)
 
 
 sysCallToValue :: SysCall -> StdLibValue
@@ -73,6 +80,12 @@ sysCallToValType sc = case sc of
         Or -> wrap (&&)
         Eq -> ( toStdValue ((==) :: Value -> Value -> Bool)
               , Bound 0 (Mono (TVar 0 :-> TVar 0 :-> TConst TBool)))
+        Fst -> ( toStdValue (fst :: (Value, Value) -> Value)
+               , Bound 0 $ Bound 1 $ Mono $ TTuple (TVar 0) (TVar 1) :-> TVar 0)
+        Snd -> ( toStdValue (snd :: (Value, Value) -> Value)
+               , Bound 0 $ Bound 1 $ Mono $ TTuple (TVar 0) (TVar 1) :-> TVar 1)
+        Pair -> ( toStdValue (curry Tuple)
+                , Bound 0 $ Bound 1 $ Mono $ TVar 0 :-> TVar 1 :-> TTuple (TVar 0) (TVar 1))
     where
         castProxy :: a -> Proxy a
         castProxy = const Proxy

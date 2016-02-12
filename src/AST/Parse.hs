@@ -24,7 +24,7 @@ languageDef =
                                   , "true" , "false"
                                   , "and", "or", "not"
                                   ]
-        , Token.reservedOpNames = ["::", "->", "=", "+", "-", "*", "/", "<", ">", "==" ]
+        , Token.reservedOpNames = ["::", "->", "=", "+", "-", "*", "/", "<", ">", "==", "," ]
     }
 
 lexer = Token.makeTokenParser languageDef
@@ -54,14 +54,16 @@ typeIdent = do
     <?> "type identifier"
 
 typeAtom :: Parser (Mono Name)
-typeAtom = TConst <$> typeIdent
+typeAtom = parens typ
+       <|> TConst <$> typeIdent
        <|> TVar <$> ident
     <?> "type atom"
 
 typeOperators :: forall st. [[Operator Char st (Mono Name)]]
-typeOperators = [ [fun] ]
+typeOperators = [ [tuple], [fun] ]
     where
         fun = Infix (reservedOp "->" >> return (:->)) AssocRight
+        tuple = Infix (reservedOp "," >> return TTuple) AssocLeft
 
 typ :: Parser (Mono Name)
 typ = buildExpressionParser typeOperators typeAtom
@@ -72,7 +74,8 @@ typed p = flip LFixP <$> p <*> optionMaybe (reservedOp "::" >> typ)
 
 -----------------------
 operators :: forall st. [[Operator Char st (UntypedExpr Name)]]
-operators = [ [neg]
+operators = [ [tuple]
+            , [neg]
             , [mul, div]
             , [add, sub]
             , [and]
@@ -90,6 +93,7 @@ operators = [ [neg]
         or  = g "or"
         and = g "and"
         eq =  g "=="
+        tuple =  g ","
 
 
 boolean :: Parser (UntypedExpr Name)

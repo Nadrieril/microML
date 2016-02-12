@@ -25,6 +25,7 @@ data TConst = TBool | TInt
 data Mono a =
       TConst TConst
     | Mono a :-> Mono a
+    | TTuple (Mono a) (Mono a)
     | TVar a
     deriving (Eq, Generic, Functor)
 
@@ -45,6 +46,7 @@ instance Show a => Show (Mono a) where
     show (TConst t) = show t
     show (TVar v) = printf "#%s" (show v)
     show (t1 :-> t2) = printf "(%s -> %s)" (show t1) (show t2)
+    show (TTuple t1 t2) = printf "(%s, %s)" (show t1) (show t2)
 
 instance Show a => Show (Poly a) where
     show (Mono t) = show t
@@ -63,6 +65,7 @@ free (Mono t) = f t
         f (TConst _) = IS.empty
         f (TVar i) = IS.singleton i
         f (t1 :-> t2) = IS.union (f t1) (f t2)
+        f (TTuple t1 t2) = IS.union (f t1) (f t2)
 
 
 mergeTypes :: MonoType -> MonoType -> MonoType
@@ -70,5 +73,6 @@ mergeTypes (TVar i1) (TVar i2) = TVar (min i1 i2)
 mergeTypes (TVar _) t2 = t2
 mergeTypes t1 (TVar _) = t1
 mergeTypes (t11 :-> t12) (t21 :-> t22) = mergeTypes t11 t21 :-> mergeTypes t12 t22
+mergeTypes (TTuple t11 t12) (TTuple t21 t22) = TTuple (mergeTypes t11 t21) (mergeTypes t12 t22)
 mergeTypes t1 t2 | t1 == t2 = t1
                  | otherwise = error $ printf "Cannot merge different types (%s and %s)" (show t1) (show t2)
