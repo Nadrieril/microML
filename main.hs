@@ -13,12 +13,10 @@ import AST.Parse (parseML)
 import AFT.Expr (fromAST)
 import qualified AFT.Expr (Expr)
 
-import DeBruijn.Expr (deBruijn)
-import qualified DeBruijn.Expr (Expr)
-import qualified DeBruijn.Eval (eval)
-
-import Typed.Infer (inferType)
-import qualified Typed.Expr (Expr)
+import DBT.Expr (deBruijn)
+import qualified DBT.Expr (Expr, TypedExpr)
+import qualified DBT.Eval (eval)
+import DBT.Infer (inferType)
 
 import qualified ASM.Instr as ASM
 import qualified ASM.Eval as ASM
@@ -31,9 +29,9 @@ instance Evaluable AST.Expr.Expr where
     eval = return "<no evaluation>"
 instance Evaluable AFT.Expr.Expr where
     eval = return "<no evaluation>"
-instance Evaluable DeBruijn.Expr.Expr where
-    eval = show . DeBruijn.Eval.eval
-instance Evaluable Typed.Expr.Expr where
+instance Evaluable DBT.Expr.Expr where
+    eval = show . DBT.Eval.eval
+instance Evaluable DBT.Expr.TypedExpr where
     eval = return "<no evaluation>"
 instance Evaluable [ASM.Instr] where
     eval = show . ASM.eval . ASM.Code
@@ -49,13 +47,13 @@ testCode stage code =
         let aft = fromAST ast
         printStage 2 stage aft
 
-        let dBjn = deBruijn aft
-        printStage 3 stage dBjn
+        let dbt = deBruijn aft
+        printStage 3 stage dbt
 
-        let typed = inferType dBjn
+        let typed = inferType dbt
         printStage 4 stage typed
 
-        let compiled = ASM.compile typed
+        let compiled = ASM.compile dbt
         printStage 5 stage compiled
 
     where printStage i stage tree =

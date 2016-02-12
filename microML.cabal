@@ -16,10 +16,9 @@ executable main
           AST.Parse
           AST.Expr
           AFT.Expr
-          DeBruijn.Expr
-          DeBruijn.Eval
-          Typed.Expr
-          Typed.Infer
+          DBT.Expr
+          DBT.Eval
+          DBT.Infer
           ASM.Instr
           ASM.Eval
 

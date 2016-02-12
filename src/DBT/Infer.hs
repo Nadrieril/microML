@@ -1,5 +1,5 @@
 {-# LANGUAGE RankNTypes, FlexibleContexts #-}
-module Typed.Infer
+module DBT.Infer
     ( inferType
     ) where
 
@@ -13,11 +13,11 @@ import Control.Eff.State.Strict (State, get, put, modify, evalState)
 import Utils (Stack)
 import qualified Utils (trace)
 import qualified Utils.UnionFind as UF
-import qualified DeBruijn.Expr as DeBruijn
+import qualified DBT.Expr as DBT
 import qualified Common.StdLib as StdLib
 import Common.Expr
 import Common.Type
-import Typed.Expr
+import DBT.Expr
 
 trace :: Show a => a -> b -> b
 trace = Utils.trace False
@@ -59,7 +59,7 @@ find t = do
             return t'
         _ -> return t
 
-getType :: VId -> Env r Type
+getType :: Id -> Env r Type
 getType i = (!! i) <$> get
 
 inst :: Type -> Env r MonoType
@@ -109,7 +109,7 @@ projectType t = evalState (M.empty :: M.Map Name Int) (f t)
                     return $ TVar i
         f (t1 :-> t2) = (:->) <$> f t1 <*> f t2
 
-inferTypeE :: DeBruijn.Expr -> Env r Expr
+inferTypeE :: DBT.Expr -> Env r TypedExpr
 inferTypeE (LFixP t e) =
     case t of
         Nothing -> e'
@@ -120,20 +120,20 @@ inferTypeE (LFixP t e) =
             return $ LFixP t' e''
 
     where e' = case e of
-            DeBruijn.Const c ->
+            DBT.Const c ->
                 return $ LFixP (TConst $ typeof c) (Const c)
 
-            DeBruijn.Var x -> do
+            DBT.Var x -> do
                 t <- getType x
                 s <- inst t
                 return $ LFixP s (Var x)
 
-            DeBruijn.Global x -> do
+            DBT.Global x -> do
                 let t = StdLib.sysCallToType $ StdLib.getSysCall x
                 s <- inst t
                 return $ LFixP s (Global x)
 
-            DeBruijn.If b e1 e2 -> do
+            DBT.If b e1 e2 -> do
                 b@(LFixP tb _) <- inferTypeE b
                 unify tb (TConst TBool)
                 e1@(LFixP t1 _) <- inferTypeE e1
@@ -141,25 +141,25 @@ inferTypeE (LFixP t e) =
                 unify t1 t2
                 return $ LFixP t1 (If b e1 e2)
 
-            DeBruijn.Ap f x -> do
+            DBT.Ap f x -> do
                 f@(LFixP tf _) <- inferTypeE f
                 x@(LFixP tx _) <- inferTypeE x
                 t <- TVar <$> freshV
                 unify tf (tx :-> t)
                 return $ LFixP t (Ap f x)
 
-            DeBruijn.Fun n e -> do
+            DBT.Fun n e -> do
                 t <- TVar <$> freshV
                 e <- localPush (Mono t) $ inferTypeE e
                 return $ LFixP (t :-> label e) (Fun n e)
 
-            DeBruijn.Fix n e -> do
+            DBT.Fix n e -> do
                 t <- TVar <$> freshV
                 e <- localPush (Mono t) $ inferTypeE e
                 unify t (label e)
                 return $ LFixP t (Fix n e)
 
-            DeBruijn.Let n v e -> do
+            DBT.Let n v e -> do
                 LFixP t v <- inferTypeE v
                 t <- find t
                 t' <- bind t
@@ -167,7 +167,7 @@ inferTypeE (LFixP t e) =
                 return $ LFixP (label e) (Let n (LFixP t v) e)
 
 
-inferType :: DeBruijn.Expr -> Expr
+inferType :: DBT.Expr -> TypedExpr
 inferType e = run $
     evalState (0 :: Int) $
     evalState ([] :: Stack Type) $

@@ -1,5 +1,5 @@
 {-# LANGUAGE RecursiveDo, FlexibleContexts, UndecidableInstances #-}
-module DeBruijn.Eval
+module DBT.Eval
     ( Env
     , Val(..)
     , Eval
@@ -12,7 +12,7 @@ import Control.Monad.State (State, evalState, get, put)
 import Utils (push, local)
 import qualified Common.StdLib as StdLib
 import Common.Expr
-import DeBruijn.Expr
+import DBT.Expr
 
 
 type Env e = [Val e]
