@@ -87,10 +87,10 @@ type ASMEval r e =
 
 evalE :: ASMEval r Value
 evalE = do
-    get code >>= T.traceShowM
-    get env >>= T.traceShowM
-    get callstack >>= T.traceShowM
-    get valstack >>= T.traceShowM
+    -- get code >>= T.traceShowM
+    -- get env >>= T.traceShowM
+    -- get callstack >>= T.traceShowM
+    -- get valstack >>= T.traceShowM
 
     popM code >>= \case
         Nothing -> do
@@ -101,7 +101,7 @@ evalE = do
                 else push code Return >> evalE
 
         Just c -> do
-            T.traceM ("> " ++ show c ++ "\n")
+            -- T.traceM ("> " ++ show c ++ "\n")
             case c of
                 Access i -> do
                     Env e <- get env
