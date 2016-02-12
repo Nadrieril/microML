@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, PatternSynonyms #-}
 module Common.StdLib
     ( StdLibValue(..)
     , getSysCall
@@ -10,7 +10,7 @@ where
 import Data.Proxy (Proxy(..))
 
 import Common.Expr
-import Common.Type (TConst(..), Mono(..), Poly(..), MonoType, Type)
+import Common.Type (TConst(..), Mono(..), Poly(..), MonoType, Type, pattern TTuple)
 
 
 getSysCall :: Name -> SysCall
@@ -61,7 +61,10 @@ instance StdWrappable a => StdWrappable (Integer -> a) where
 instance StdWrappable a => StdWrappable (Bool -> a) where
     toStdValue f = Fun $ \(B x) -> toStdValue (f x)
 instance StdWrappable a => StdWrappable ((Value, Value) -> a) where
-    toStdValue f = Fun $ \(Tuple x) -> toStdValue (f x)
+    toStdValue f = Fun $ \(Tuple x y) -> toStdValue (f (x, y))
+instance StdWrappable a => StdWrappable (Name -> [Value] -> a) where
+    toStdValue f = Fun $ \(Product n l) -> toStdValue (f n l)
+
 
 
 sysCallToValue :: SysCall -> StdLibValue
@@ -84,7 +87,7 @@ sysCallToValType sc = case sc of
                , Bound 0 $ Bound 1 $ Mono $ TTuple (TVar 0) (TVar 1) :-> TVar 0)
         Snd -> ( toStdValue (snd :: (Value, Value) -> Value)
                , Bound 0 $ Bound 1 $ Mono $ TTuple (TVar 0) (TVar 1) :-> TVar 1)
-        Pair -> ( toStdValue (curry Tuple)
+        Pair -> ( toStdValue Tuple
                 , Bound 0 $ Bound 1 $ Mono $ TVar 0 :-> TVar 1 :-> TTuple (TVar 0) (TVar 1))
     where
         castProxy :: a -> Proxy a

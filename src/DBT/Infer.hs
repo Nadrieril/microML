@@ -7,6 +7,7 @@ import Data.Typeable (Typeable)
 import Text.Printf (printf)
 import qualified Data.Map as M
 import qualified Data.IntSet as IS
+import Control.Monad (zipWithM_)
 import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, get, put, modify, evalState)
 
@@ -50,12 +51,12 @@ union x y = modify (UF.union' mergeTypes x y)
 
 find :: MonoType -> Env r MonoType
 find (t1 :-> t2) = (:->) <$> find t1 <*> find t2
-find (TTuple t1 t2) = TTuple <$> find t1 <*> find t2
+find (TProduct n tl) = TProduct n <$> mapM find tl
 find t = do
     t <- state (UF.find t)
     case t of
         (_ :-> _) -> autoUnion t
-        (TTuple _ _) -> autoUnion t
+        (TProduct _ _) -> autoUnion t
         _ -> return t
     where
         autoUnion :: MonoType -> Env r MonoType
@@ -81,7 +82,9 @@ unify t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
     where
         unify_ :: MonoType -> MonoType -> Env r ()
         unify_ (t11 :-> t12) (t21 :-> t22) = unify_ t11 t21 >> unify_ t12 t22
-        unify_ (TTuple t11 t12) (TTuple t21 t22) = unify_ t11 t21 >> unify_ t12 t22
+        unify_ (TProduct n1 tl1) (TProduct n2 tl2)
+            | n1 == n2 = zipWithM_ unify_ tl1 tl2
+            | otherwise = error $ printf "Cannot unify %s and %s" (show n1) (show n2)
         unify_ t1@(TVar _) t2 = t1 `union` t2
         unify_ t1 t2@(TVar _) = t1 `union` t2
         unify_ t1 t2 | t1 == t2 = return ()
@@ -99,7 +102,7 @@ bind t = do
 typeof :: Value -> Mono a
 typeof (B _) = TConst TBool
 typeof (I _) = TConst TInt
-typeof (Tuple (x, y)) = TTuple (typeof x) (typeof y)
+typeof (Product n l) = TProduct n (fmap typeof l)
 
 projectType :: Mono Name -> Env r MonoType
 projectType t = evalState (M.empty :: M.Map Name Int) (f t)
@@ -115,7 +118,7 @@ projectType t = evalState (M.empty :: M.Map Name Int) (f t)
                     put (M.insert n i state)
                     return $ TVar i
         f (t1 :-> t2) = (:->) <$> f t1 <*> f t2
-        f (TTuple t1 t2) = TTuple <$> f t1 <*> f t2
+        f (TProduct n tl) = TProduct n <$> mapM f tl
 
 inferTypeE :: DBT.Expr -> Env r TypedExpr
 inferTypeE (LFixP t e) =
