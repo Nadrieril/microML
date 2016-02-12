@@ -19,6 +19,9 @@ import qualified DeBruijn.Eval (eval)
 import Typed.Infer (inferType)
 import qualified Typed.Expr (Expr)
 
+import qualified ASM.Instr as ASM
+import qualified ASM.Eval as ASM
+
 
 class Show a => Evaluable a where
     eval :: a -> String
@@ -31,6 +34,8 @@ instance Evaluable DeBruijn.Expr.Expr where
     eval = show . DeBruijn.Eval.eval
 instance Evaluable Typed.Expr.Expr where
     eval = return "<no evaluation>"
+instance Evaluable [ASM.Instr] where
+    eval = show . ASM.eval . ASM.Code
 
 testCode :: Int -> String -> IO ()
 testCode stage code =
@@ -48,6 +53,9 @@ testCode stage code =
 
         let typed = inferType dBjn
         printStage 4 stage typed
+
+        let compiled = ASM.compile typed
+        printStage 5 stage compiled
 
     where printStage i stage tree =
             when (stage == 0 || stage == i) $ do
@@ -71,6 +79,8 @@ main = do
 
     putStrLn ""
     testFile 0 "tests/test.ml"
+
+    -- print $ ASM.eval ASM.example
 
     where
         testFile stage file = do

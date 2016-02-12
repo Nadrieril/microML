@@ -20,6 +20,8 @@ executable main
           DeBruijn.Eval
           Typed.Expr
           Typed.Infer
+          ASM.Instr
+          ASM.Eval
 
     extensions:
         DeriveFunctor
