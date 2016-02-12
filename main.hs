@@ -1,10 +1,11 @@
 {-# LANGUAGE TypeFamilies, FlexibleInstances #-}
 module Main where
 
-import Control.Monad (forM_, when)
+-- import Control.Monad (forM_)
+import Control.Monad (when)
 -- import Control.Exception (throwIO, IOException)
 import Control.Exception
-import System.Directory (getDirectoryContents, doesFileExist)
+-- import System.Directory (getDirectoryContents, doesFileExist)
 
 import qualified AST.Expr (Expr)
 import AST.Parse (parseML)
@@ -69,13 +70,13 @@ testCode stage code =
 
 main :: IO ()
 main = do
-    putStrLn ""
-    files <- getDirectoryContents "tests"
-    forM_ files $ \name -> do
-        let file = "tests/" ++ name
-        isFile <- doesFileExist file
-        when (isFile && name /= "test.ml") $
-            testFile 3 file
+    -- putStrLn ""
+    -- files <- getDirectoryContents "tests"
+    -- forM_ files $ \name -> do
+    --     let file = "tests/" ++ name
+    --     isFile <- doesFileExist file
+    --     when (isFile && name /= "test.ml") $
+    --         testFile 3 file
 
     putStrLn ""
     testFile 0 "tests/test.ml"
