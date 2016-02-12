@@ -10,7 +10,7 @@ where
 import Data.Proxy (Proxy(..))
 
 import Common.Expr
-import Common.Type (TConst(..), Mono(..), Poly(..), MonoType, Type, pattern TTuple)
+import Common.Type
 
 
 getSysCall :: Name -> SysCall

@@ -7,6 +7,7 @@ module Common.Type
     , MonoType
     , Type
     , pattern TTuple
+    , pattern (:->)
     , free
     , mergeTypes
     ) where
@@ -28,7 +29,6 @@ data TConst = TBool | TInt
 data Mono a =
       TConst TConst
     | TVar a
-    | Mono a :-> Mono a
     | TProduct Name [Mono a]
     deriving (Eq, Generic, Functor)
 
@@ -64,6 +64,8 @@ instance Hashable a => Hashable (Poly a)
 
 pattern TTuple x y <- (TProduct (Name ",") [x, y]) where
         TTuple x y = TProduct (Name ",") [x, y]
+pattern x :-> y <- (TProduct (Name "->") [x, y]) where
+        x :-> y = TProduct (Name "->") [x, y]
 
 
 free :: Type -> IS.IntSet
@@ -72,7 +74,6 @@ free (Mono t) = f t
     where
         f (TConst _) = IS.empty
         f (TVar i) = IS.singleton i
-        f (t1 :-> t2) = IS.union (f t1) (f t2)
         f (TProduct _ l) = IS.unions $ fmap f l
 
 
@@ -80,7 +81,6 @@ mergeTypes :: MonoType -> MonoType -> MonoType
 mergeTypes (TVar i1) (TVar i2) = TVar (min i1 i2)
 mergeTypes (TVar _) t2 = t2
 mergeTypes t1 (TVar _) = t1
-mergeTypes (t11 :-> t12) (t21 :-> t22) = mergeTypes t11 t21 :-> mergeTypes t12 t22
 mergeTypes (TProduct n1 tl1) (TProduct n2 tl2)
     | n1 == n2 = TProduct n1 $ zipWith mergeTypes tl1 tl2
     | otherwise = error $ printf "Cannot merge different types (%s and %s)" (show n1) (show n2)

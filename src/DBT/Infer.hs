@@ -50,12 +50,10 @@ union :: MonoType -> MonoType -> Env r ()
 union x y = modify (UF.union' mergeTypes x y)
 
 find :: MonoType -> Env r MonoType
-find (t1 :-> t2) = (:->) <$> find t1 <*> find t2
 find (TProduct n tl) = TProduct n <$> mapM find tl
 find t = do
     t <- state (UF.find t)
     case t of
-        (_ :-> _) -> autoUnion t
         (TProduct _ _) -> autoUnion t
         _ -> return t
     where
@@ -81,7 +79,6 @@ unify t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
     unify_ t1 t2
     where
         unify_ :: MonoType -> MonoType -> Env r ()
-        unify_ (t11 :-> t12) (t21 :-> t22) = unify_ t11 t21 >> unify_ t12 t22
         unify_ (TProduct n1 tl1) (TProduct n2 tl2)
             | n1 == n2 = zipWithM_ unify_ tl1 tl2
             | otherwise = error $ printf "Cannot unify %s and %s" (show n1) (show n2)
@@ -117,7 +114,6 @@ projectType t = evalState (M.empty :: M.Map Name Int) (f t)
                     i <- freshV
                     put (M.insert n i state)
                     return $ TVar i
-        f (t1 :-> t2) = (:->) <$> f t1 <*> f t2
         f (TProduct n tl) = TProduct n <$> mapM f tl
 
 inferTypeE :: DBT.Expr -> Env r TypedExpr
