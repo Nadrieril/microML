@@ -79,17 +79,17 @@ unify t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
     unify_ t1 t2
     where
         unify_ :: MonoType -> MonoType -> Env r ()
+        unify_ t1@(TVar _) t2 = t1 `union` t2
+        unify_ t1 t2@(TVar _) = t1 `union` t2
         unify_ (TProduct n1 tl1) (TProduct n2 tl2)
             | n1 == n2 = zipWithM_ unify_ tl1 tl2
             | otherwise = error $ printf "Cannot unify %s and %s" (show n1) (show n2)
-        unify_ t1@(TVar _) t2 = t1 `union` t2
-        unify_ t1 t2@(TVar _) = t1 `union` t2
         unify_ t1 t2 | t1 == t2 = return ()
                      | otherwise = error $ printf "Cannot unify %s and %s" (show t1) (show t2)
 
 
-bind :: MonoType -> Env r Type
-bind t = do
+partialBind :: MonoType -> Env r Type
+partialBind t = do
     t <- Mono <$> find t
     let freeInT = free t
     stk <- get
@@ -169,7 +169,7 @@ inferTypeE (LFixP t e) =
             DBT.Let n v e -> do
                 LFixP t v <- inferTypeE v
                 t <- find t
-                t' <- bind t
+                t' <- partialBind t
                 e <- localPush t' $ inferTypeE e
                 return $ LFixP (label e) (Let n (LFixP t v) e)
 

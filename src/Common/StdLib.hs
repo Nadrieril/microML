@@ -82,13 +82,13 @@ sysCallToValType sc = case sc of
         And -> wrap (||)
         Or -> wrap (&&)
         Eq -> ( toStdValue ((==) :: Value -> Value -> Bool)
-              , Bound 0 (Mono (TVar 0 :-> TVar 0 :-> TConst TBool)))
+              , bind $ TVar (-1) :-> TVar (-1) :-> TConst TBool)
         Fst -> ( toStdValue (fst :: (Value, Value) -> Value)
-               , Bound 0 $ Bound 1 $ Mono $ TTuple (TVar 0) (TVar 1) :-> TVar 0)
+               , bind $ TTuple (TVar (-1)) (TVar (-2)) :-> TVar (-1))
         Snd -> ( toStdValue (snd :: (Value, Value) -> Value)
-               , Bound 0 $ Bound 1 $ Mono $ TTuple (TVar 0) (TVar 1) :-> TVar 1)
+               , bind $ TTuple (TVar (-1)) (TVar (-2)) :-> TVar (-2))
         Pair -> ( toStdValue Tuple
-                , Bound 0 $ Bound 1 $ Mono $ TVar 0 :-> TVar 1 :-> TTuple (TVar 0) (TVar 1))
+                , bind $ TVar (-1) :-> TVar (-2) :-> TTuple (TVar (-1)) (TVar (-2)))
     where
         castProxy :: a -> Proxy a
         castProxy = const Proxy

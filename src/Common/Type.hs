@@ -8,6 +8,7 @@ module Common.Type
     , Type
     , pattern TTuple
     , pattern (:->)
+    , bind
     , free
     , mergeTypes
     ) where
@@ -76,6 +77,8 @@ free (Mono t) = f t
         f (TVar i) = IS.singleton i
         f (TProduct _ l) = IS.unions $ fmap f l
 
+bind :: MonoType -> Type
+bind t = IS.foldr Bound (Mono t) (free $ Mono t)
 
 mergeTypes :: MonoType -> MonoType -> MonoType
 mergeTypes (TVar i1) (TVar i2) = TVar (min i1 i2)
