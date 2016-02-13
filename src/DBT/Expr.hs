@@ -15,6 +15,7 @@ import Data.List (elemIndex)
 import Control.Monad.State (State, get, gets, evalState)
 
 import Utils (Stack, withPush)
+import AST.Parse (isOperator)
 import Common.Expr
 import Common.Type
 import qualified AFT.Expr as AFT
@@ -48,6 +49,7 @@ instance Show (LabelledExp (Maybe (Mono Name)) Name) where
                 Var x -> show x
                 Global x -> show x
                 Const c -> show c
+                Ap (expr -> Ap (expr -> Var (Name o)) x) y | isOperator o -> printf "(%s %s %s)" (show x) (show $ Name o) (show y)
                 Ap f x -> printf "(%s %s)" (show f) (show x)
                 Let x v e -> printf "let %s = %s in\n%s" (show x) (show v) (show e)
                 If b e1 e2 -> printf "if %s then %s else %s" (show b) (show e1) (show e2)
