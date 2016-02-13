@@ -16,12 +16,12 @@ data ADT a = ADT {
     , adtParams :: [Name]
     , adtConstructors :: [Constructor a]
     , deconstructor :: Maybe Name
-    } deriving (Show)
+    }
 
 data Constructor a = Constructor {
       constructorName :: Name
     , constructorParams :: [Mono a]
-    } deriving (Show)
+    }
 
 
 deconstructorName :: ADT a -> Name

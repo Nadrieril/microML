@@ -15,6 +15,7 @@ import Control.Monad.State (State, evalState, get, put)
 import qualified Debug.Trace as T
 
 import Utils (push, local)
+import AST.Parse (isOperator)
 import qualified Common.StdLib as StdLib
 import Common.Expr
 import Common.ADT
@@ -33,6 +34,7 @@ data Val e =
 
 instance Show e => Show (Val e) where
   show (Val x) = printf "Val %s" (show x)
+  show (VProduct n [x, y]) | isOperator n = printf "(%s %s %s)" (show x) (show n) (show y)
   show (VProduct n l) = printf "%s%s" (show n) (show l)
   show (VFun _ e) = printf "VFun(\\%s)" (show e)
   show VSysCall{} = printf "VSysCall"

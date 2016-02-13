@@ -38,8 +38,8 @@ natural    = Token.natural    lexer -- parses an natural
 whiteSpace = Token.whiteSpace lexer -- parses whitespace
 
 -----------------------
-isOperator :: String -> Bool
-isOperator = isRight . parse operator ""
+isOperator :: Name -> Bool
+isOperator (Name n) = isRight . parse operator ""$ n
 
 -----------------------
 untyped :: UntypedExpr a -> TypedExpr a

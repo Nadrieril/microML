@@ -48,10 +48,13 @@ testCode stage code =
         -- printStage 2 stage aft
 
         let dbt = deBruijn aft
-        printStage 3 stage dbt
+        -- printStage 3 stage dbt
 
         let typed = inferType dbt
-        printStage 4 stage typed
+        -- printStage 4 stage typed
+        print typed
+        putStrLn ""
+        evalStage dbt
 
         -- let compiled = ASM.compile dbt
         -- printStage 5 stage compiled
@@ -59,10 +62,11 @@ testCode stage code =
     where printStage i stage tree =
             when (stage == 0 || stage == i) $ do
                 print tree
-                catch
-                    (putStrLn $ "-> " ++ eval tree)
-                    (\(err::SomeException) -> putStrLn $ "Error: " ++ show err)
+                evalStage tree
                 putStrLn ""
+          evalStage tree =
+                catch (putStrLn $ "-> " ++ eval tree)
+                      (\(err::SomeException) -> putStrLn $ "Error: " ++ show err)
 
 
 

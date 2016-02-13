@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric, PatternSynonyms #-}
+{-# LANGUAGE DeriveGeneric, PatternSynonyms, FlexibleInstances #-}
 module Common.Type
     ( TId
     , TConst(..)
@@ -14,11 +14,16 @@ module Common.Type
     ) where
 
 import GHC.Generics (Generic)
+import Data.List (intercalate)
 import Data.Hashable (Hashable)
+import qualified Data.Map as M
 import qualified Data.IntSet as IS
+import Control.Arrow (first, second)
+import Control.Monad.State (State, gets, modify, evalState)
 import Text.Printf (printf)
 
 import Common.Expr (Name(..))
+
 
 infixr 4 :->
 
@@ -46,16 +51,48 @@ instance Show TConst where
     show TBool = "Bool"
     show TInt = "Int"
 
-instance Show a => Show (Mono a) where
+instance Show (Mono TId) where
+    show = show . calcVarName
+
+instance Show (Mono Name) where
     show (TConst t) = show t
-    show (TVar v) = printf "#%s" (show v)
-    show (t1 :-> t2) = printf "(%s -> %s)" (show t1) (show t2)
+    show (TVar v) = printf "%s" (show v)
+    show t@(_ :-> _) = printf "(%s)" (intercalate " -> " $ map show $ foldarrow t)
+        where
+            foldarrow (t1 :-> t2) = t1:foldarrow t2
+            foldarrow x = [x]
     show (TTuple t1 t2) = printf "(%s, %s)" (show t1) (show t2)
     show (TProduct n l) = printf "%s%s" (show n) (show l)
 
-instance Show a => Show (Poly a) where
-    show (Mono t) = show t
-    show (Bound v t) = printf "\\#%s.%s" (show v) (show t)
+
+calcVarName :: Mono TId -> Mono Name
+calcVarName e = evalState (auxMono e) (0, M.empty)
+    where
+        new :: State (Int, M.Map TId Name) Name
+        new = (Name . iToName <$> gets fst)
+                <* modify (first (+1))
+            where iToName = (:[]) . toEnum . (fromEnum 'a' +)
+        -- auxPoly :: Poly TId -> State (Int, M.Map TId Name) (Poly Name)
+        -- auxPoly t =
+        --     case t of
+        --         Mono t -> Mono <$> auxMono t
+        --         Bound i t -> do
+        --             n <- new
+        --             modify (second $ M.insert i n)
+        --             Bound n <$> auxPoly t
+        auxMono :: Mono TId -> State (Int, M.Map TId Name) (Mono Name)
+        auxMono (TConst t) = return $ TConst t
+        auxMono (TVar i) = do
+            nameMap <- gets snd
+            TVar <$> if i `M.member` nameMap
+                then return $ nameMap M.! i
+                else do
+                    n <- new
+                    modify (second $ M.insert i n)
+                    return n
+        auxMono (TProduct n l) = TProduct n <$> mapM auxMono l
+
+
 
 
 instance Hashable TConst
