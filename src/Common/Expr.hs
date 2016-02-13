@@ -2,7 +2,7 @@
 module Common.Expr where
 
 import Data.Hashable (Hashable)
-import Text.Printf (printf)
+import Data.String (IsString(..))
 
 
 newtype Name = Name String
@@ -11,6 +11,8 @@ newtype Name = Name String
 instance Show Name where
   show (Name o) = o
 
+instance IsString Name where
+  fromString = Name
 
 
 data Value = B Bool | I Integer

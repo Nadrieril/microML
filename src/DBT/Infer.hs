@@ -17,6 +17,7 @@ import qualified Utils.UnionFind as UF
 import qualified DBT.Expr as DBT
 import qualified Common.StdLib as StdLib
 import Common.Expr
+import Common.ADT
 import Common.Type
 import DBT.Expr
 
@@ -135,7 +136,9 @@ inferTypeE (LFixP t e) =
                 return $ LFixP s (Var x)
 
             DBT.Global x -> do
-                let t = StdLib.sysCallToType $ StdLib.getSysCall x
+                let t = if x `M.member` adtFunMap
+                        then adtFunMap M.! x
+                        else StdLib.sysCallToType $ StdLib.getSysCall x
                 s <- inst t
                 return $ LFixP s (Global x)
 
