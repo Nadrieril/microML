@@ -78,7 +78,11 @@ calcVarName e = evalState (calcVarName'' e) []
 calcVarName'' :: LabelledExp l Id -> State (Stack Name) (LabelledExp l Name)
 calcVarName'' (LFixP l e) = LFixP l <$>
     case e of
-        Var i -> Var <$> gets (!! i)
+        Var i -> do
+            stk <- get
+            return $ Var $ if i < length stk
+                then stk !! i
+                else Name $ printf "#%d" i
         Global x -> return $ Global x
         Const c -> return $ Const c
         Fun n e -> withPush n (Fun n <$> calcVarName'' e)
