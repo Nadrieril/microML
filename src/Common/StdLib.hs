@@ -22,9 +22,6 @@ getSysCall (Name x) = case x of
     "and" -> And
     "or" -> Or
     "==" -> Eq
-    "fst" -> Fst
-    "snd" -> Snd
-    "," -> Pair
     x -> error $ "unknown syscall : " ++ x
 
 
@@ -40,8 +37,6 @@ instance TypeWrappable Bool where
     toType _ = TConst TBool
 instance (TypeWrappable a, TypeWrappable b) => TypeWrappable (a -> b) where
     toType _ = toType (Proxy :: Proxy a) :-> toType (Proxy :: Proxy b)
-instance (TypeWrappable a, TypeWrappable b) => TypeWrappable (a, b) where
-    toType _ = TTuple (toType (Proxy :: Proxy a)) (toType (Proxy :: Proxy b))
 
 
 class StdWrappable a where
@@ -60,10 +55,6 @@ instance StdWrappable a => StdWrappable (Integer -> a) where
     toStdValue f = Fun $ \(I x) -> toStdValue (f x)
 instance StdWrappable a => StdWrappable (Bool -> a) where
     toStdValue f = Fun $ \(B x) -> toStdValue (f x)
-instance StdWrappable a => StdWrappable ((Value, Value) -> a) where
-    toStdValue f = Fun $ \(Tuple x y) -> toStdValue (f (x, y))
-instance StdWrappable a => StdWrappable (Name -> [Value] -> a) where
-    toStdValue f = Fun $ \(Product n l) -> toStdValue (f n l)
 
 
 
@@ -83,12 +74,6 @@ sysCallToValType sc = case sc of
         Or -> wrap (&&)
         Eq -> ( toStdValue ((==) :: Value -> Value -> Bool)
               , bind $ TVar (-1) :-> TVar (-1) :-> TConst TBool)
-        Fst -> ( toStdValue (fst :: (Value, Value) -> Value)
-               , bind $ TTuple (TVar (-1)) (TVar (-2)) :-> TVar (-1))
-        Snd -> ( toStdValue (snd :: (Value, Value) -> Value)
-               , bind $ TTuple (TVar (-1)) (TVar (-2)) :-> TVar (-2))
-        Pair -> ( toStdValue Tuple
-                , bind $ TVar (-1) :-> TVar (-2) :-> TTuple (TVar (-1)) (TVar (-2)))
     where
         castProxy :: a -> Proxy a
         castProxy = const Proxy

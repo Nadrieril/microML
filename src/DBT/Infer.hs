@@ -99,7 +99,6 @@ partialBind t = do
 typeof :: Value -> Mono a
 typeof (B _) = TConst TBool
 typeof (I _) = TConst TInt
-typeof (Product n l) = TProduct n (fmap typeof l)
 
 projectType :: Mono Name -> Env r MonoType
 projectType t = evalState (M.empty :: M.Map Name Int) (f t)
