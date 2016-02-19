@@ -25,6 +25,8 @@ languageDef =
                                   , "true" , "false"
                                   ]
         , Token.reservedOpNames = ["::", "->", "=" ]
+        , Token.opStart = Token.opLetter languageDef
+        , Token.opLetter = oneOf ":!#$%&*+./<=>?@\\^|-~,"
     }
 
 lexer = Token.makeTokenParser languageDef
