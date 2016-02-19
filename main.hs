@@ -55,9 +55,10 @@ testCode stage code =
         print typed
         putStrLn ""
         evalStage dbt
+        putStrLn ""
 
-        -- let compiled = ASM.compile dbt
-        -- printStage 5 stage compiled
+        let compiled = ASM.compile dbt
+        printStage 5 stage compiled
 
     where printStage i stage tree =
             when (stage == 0 || stage == i) $ do

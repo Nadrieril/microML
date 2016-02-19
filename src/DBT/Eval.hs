@@ -36,7 +36,7 @@ instance Show e => Show (Val e) where
     show (VFun _ e) = printf "VFun(\\%s)" (show e)
     show VSysCall{} = printf "VSysCall"
     show (VConstructor adt n _ l) = let name = constructorName (adtConstructors adt !! n) in
-        case l of
+        case reverse l of
             [x, y] | isOperator name -> printf "(%s %s %s)" (show x) (show name) (show y)
             l -> printf "%s%s" (show name) (show l)
     show (VDeconstructor adt _ _) = printf "%s.." (show $ deconstructorName adt)
@@ -74,7 +74,7 @@ evalAp (VDeconstructor _ 0 p) (VConstructor _ n 0 l) = do
         foldrM (flip evalAp) f l
 evalAp (VDeconstructor _ 0 _) _ = error "Attempting to deconstruct non-product value"
 evalAp (VDeconstructor adt i p) x = return $ VDeconstructor adt (i-1) (x:p)
-evalAp v _ = error $ printf "Error: attempting to evaluate %s as function" (show v)
+evalAp v _ = error $ printf "Error: attempting to evaluate %s as a function" (show v)
 
 evalE :: Expr -> Eval Expr
 evalE (expr -> Var i) = (!! i) <$> get
