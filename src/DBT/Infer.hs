@@ -68,8 +68,8 @@ getType :: Id -> Env r Type
 getType i = (!! i) <$> get
 
 inst :: Type -> Env r MonoType
-inst (Mono t) = return t
-inst (Bound i t) = do
+inst (TMono t) = return t
+inst (TBound i t) = do
     i' <- freshV
     inst $ fmap (\j -> if i==j then i' else j) t
 
@@ -91,11 +91,11 @@ unify t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
 
 partialBind :: MonoType -> Env r Type
 partialBind t = do
-    t <- Mono <$> find t
+    t <- TMono <$> find t
     let freeInT = free t
     stk <- get
     let freeInStack = IS.unions (map free stk)
-    return $ IS.foldr Bound t (freeInT IS.\\ freeInStack)
+    return $ IS.foldr TBound t (freeInT IS.\\ freeInStack)
 
 typeof :: Value -> Mono a
 typeof (B _) = TConst TBool
@@ -130,17 +130,17 @@ inferTypeE (LFixP t e) =
             Const c ->
                 return $ LFixP (typeof c) (Const c)
 
-            Var x -> do
+            Bound x -> do
                 t <- getType x
                 s <- inst t
-                return $ LFixP s (Var x)
+                return $ LFixP s (Bound x)
 
-            Global x -> do
+            Free x -> do
                 let t = if x `M.member` adtFunMap
                         then adtFunMap M.! x
                         else StdLib.sysCallToType $ StdLib.getSysCall x
                 s <- inst t
-                return $ LFixP s (Global x)
+                return $ LFixP s (Free x)
 
             If b e1 e2 -> do
                 b <- inferTypeE b
@@ -159,12 +159,12 @@ inferTypeE (LFixP t e) =
 
             Fun s -> do
                 t <- TVar <$> freshV
-                s@(Scope _ e) <- inferScope (Mono t) s
+                s@(Scope _ e) <- inferScope (TMono t) s
                 return $ LFixP (t :-> label e) (Fun s)
 
             Fix s -> do
                 t <- TVar <$> freshV
-                s@(Scope _ e) <- inferScope (Mono t) s
+                s@(Scope _ e) <- inferScope (TMono t) s
                 unify t (label e)
                 return $ LFixP t (Fix s)
 

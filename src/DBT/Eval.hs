@@ -77,8 +77,8 @@ evalAp (VDeconstructor adt i p) x = return $ VDeconstructor adt (i-1) (x:p)
 evalAp v _ = error $ printf "Error: attempting to evaluate %s as a function" (show v)
 
 evalE :: Expr -> Eval Expr
-evalE (expr -> Var i) = (!! i) <$> get
-evalE (expr -> Global g) = return $ evalSysCall g
+evalE (expr -> Bound i) = (!! i) <$> get
+evalE (expr -> Free g) = return $ evalSysCall g
 evalE (expr -> Const x) = return $ Val x
 evalE (expr -> If b e1 e2) = do
     vb <- evalE b

@@ -13,7 +13,7 @@ import AST.Parse (parseML)
 import AFT.Expr (fromAST)
 import qualified AFT.Expr (Expr)
 
-import DBT.Expr (deBruijn)
+import DBT.Expr (afttodbt)
 import qualified DBT.Expr (Expr, TypedExpr)
 import qualified DBT.Eval (eval)
 import DBT.Infer (inferType)
@@ -47,7 +47,7 @@ testCode stage code =
         let aft = fromAST ast
         -- printStage 2 stage aft
 
-        let dbt = deBruijn aft
+        let dbt = afttodbt aft
         -- printStage 3 stage dbt
 
         let typed = inferType dbt

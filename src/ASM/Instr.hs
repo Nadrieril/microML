@@ -36,9 +36,9 @@ compileE :: DBT.Expr -> Env r ()
 compileE (expr -> e) = case e of
     DBT.Const c -> tell $ Push c
 
-    DBT.Var x -> tell $ Access x
+    DBT.Bound x -> tell $ Access x
 
-    DBT.Global x -> tell $ SysCall x
+    DBT.Free x -> tell $ SysCall x
 
     DBT.If b e1 e2 -> do
         let c1 = compile e1

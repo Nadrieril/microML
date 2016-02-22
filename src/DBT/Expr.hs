@@ -7,13 +7,13 @@ module DBT.Expr
     , Id
     , LabelledExp
     , TypedExpr
-    , deBruijn
-    , calcVarName
+    , afttodbt
     , pattern SFun , pattern SFix , pattern SLet
     ) where
 
 import Text.Printf (printf)
 import Data.List (elemIndex)
+import Safe (atMay)
 import Control.Monad.State (State, get, evalState)
 
 import Utils (Stack, withPush)
@@ -23,8 +23,8 @@ import Common.Type
 import qualified AFT.Expr as AFT
 
 data AbstractExpr v a =
-      Var v
-    | Global Name
+      Bound v
+    | Free Name
     | Const Value
     | If a a a
     | Fun (Scope a)
@@ -46,40 +46,51 @@ type Expr = LabelledExp (Maybe (Mono Name)) Id
 type TypedExpr = LabelledExp MonoType Id
 
 
-instance Show Expr where
-  show =  show . calcVarName
+mapBind :: (Stack Name -> Either Name a -> Either Name a) -> LabelledExp l a -> LabelledExp l a
+mapBind f e = evalState (mapBind' f e) []
+    where
+        mapBind' :: (Stack Name -> Either Name a -> Either Name a) -> LabelledExp l a -> State (Stack Name) (LabelledExp l a)
+        mapBind' f (LFixP t e) = LFixP t <$> case e of
+            Bound i -> get >>= auxf (Right i)
+            Free n -> get >>= auxf (Left n)
+            Const c -> return $ Const c
+            If b e1 e2 -> If <$> mapBind' f b <*> mapBind' f e1 <*> mapBind' f e2
+            Ap g x -> Ap <$> mapBind' f g <*> mapBind' f x
+            Fun s -> Fun <$> auxScope s
+            Fix s -> Fix <$> auxScope s
+            Let v s -> Let <$> mapBind' f v <*> auxScope s
+            where
+                auxScope (Scope n e) = Scope n <$> withPush n (mapBind' f e)
+                auxf x s = return $ case f s x of
+                        Right i -> Bound i
+                        Left n -> Free n
 
-instance Show (LabelledExp (Maybe (Mono Name)) Name) where
-    show (LFixP t e) = case t of
+instance Show Expr where
+    show (unDebruijn -> LFixP t e) = case t of
             Nothing -> s
             Just t -> printf "%s :: %s" s (show t)
         where s = case e of
-                Var x -> show x
-                Global x -> show x
+                Bound x -> show x
+                Free x -> show x
                 Const c -> show c
-                Ap (expr -> Ap (expr -> Var o) x) y | isOperator o -> printf "(%s %s %s)" (show x) (show o) (show y)
+                Ap (expr -> Ap (expr -> Free o) x) y | isOperator o -> printf "(%s %s %s)" (show x) (show o) (show y)
                 Ap f x -> printf "(%s %s)" (show f) (show x)
                 Let v (Scope x e) -> printf "let %s = %s in\n%s" (show x) (show v) (show e)
                 If b e1 e2 -> printf "if %s then %s else %s" (show b) (show e1) (show e2)
                 Fun (Scope x e) -> printf "(\\%s -> %s)" (show x) (show e)
                 Fix (Scope x e) -> printf "fix(\\%s -> %s)" (show x) (show e)
 
-
 instance Show TypedExpr where
-    show e@(LFixP t _) = printf "%s\n:: %s" (show $ calcVarName e) (show t)
-
-
-instance Show (LabelledExp MonoType Name) where
-    show (LFixP _ e) = case e of
-        Var i -> showIdent i
-        Global x -> showIdent x
+    show (unDebruijn -> LFixP _ e) = case e of
+        Bound i -> printf "#%d" i
+        Free x -> showIdent x
         Const c -> show c
         Fun (Scope n e) -> printf "(\\%s -> %s)" (show n) (show e)
         Fix (Scope n e) -> printf "fix(\\%s -> %s)" (show n) (show e)
         Let v (Scope n e) -> let (params, v') = unfoldFun v in
             let paramStr = concatMap ((:) ' ' . show) params in
             printf "let %s%s = %s :: %s in\n%s" (showIdent n) paramStr (show v') (show $ label v) (show e)
-        Ap (expr -> Ap (expr -> Var o) x) y | isOperator o -> printf "(%s %s %s)" (show x) (show o) (show y)
+        Ap (expr -> Ap (expr -> Free o) x) y | isOperator o -> printf "(%s %s %s)" (show x) (show o) (show y)
         Ap f x@(expr -> Ap _ _) -> printf "%s (%s)" (show f) (show x)
         Ap f x -> printf "%s %s" (show f) (show x)
         If b e1 e2 -> printf "if %s then %s else %s" (show b) (show e1) (show e2)
@@ -91,42 +102,31 @@ instance Show (LabelledExp MonoType Name) where
             unfoldFun x = ([], x)
 
 
+unDebruijn :: LabelledExp l Id -> LabelledExp l Id
+unDebruijn = mapBind $ \s -> \case
+    Right i -> case s `atMay` i of
+        Just n -> Left n
+        Nothing -> Right i
+    Left n -> Left n
 
-calcVarName :: LabelledExp l Id -> LabelledExp l Name
-calcVarName e = evalState (calcVarName' e) []
+deBruijn :: LabelledExp l Id -> LabelledExp l Id
+deBruijn = mapBind $ \s -> \case
+    Right i -> Right i
+    Left n -> case n `elemIndex` s of
+                Just i -> Right i
+                Nothing -> Left n
 
-calcVarName' :: LabelledExp l Id -> State (Stack Name) (LabelledExp l Name)
-calcVarName' (LFixP l e) = LFixP l <$>
-    case e of
-        Var i -> do
-            stk <- get
-            return $ Var $ if i < length stk
-                then stk !! i
-                else Name $ printf "#%d" i
-        Global x -> return $ Global x
-        Const c -> return $ Const c
-        Fun s -> Fun <$> auxScope s
-        Fix s -> Fix <$> auxScope s
-        Let v s -> Let <$> calcVarName' v <*> auxScope s
-        Ap f x -> Ap <$> calcVarName' f <*> calcVarName' x
-        If b e1 e2 -> If <$> calcVarName' b <*> calcVarName' e1 <*> calcVarName' e2
-        where auxScope (Scope n e) = Scope n <$> withPush n (calcVarName' e)
+fromAFT :: AFT.Expr -> Expr
+fromAFT (LFixP t e) = LFixP t $ case e of
+    AFT.Var x -> Free x
+    AFT.Const c -> Const c
+    AFT.If b e1 e2 -> If (fromAFT b) (fromAFT e1) (fromAFT e2)
+    AFT.Ap f x -> Ap (fromAFT f) (fromAFT x)
+    AFT.Fun s -> Fun $ auxScope s
+    AFT.Fix s -> Fix $ auxScope s
+    AFT.Let v s -> Let (fromAFT v) (auxScope s)
+    where auxScope (AFT.Scope n e) = Scope n (fromAFT e)
 
 
-deBruijnE :: AFT.Expr -> State (Stack Name) Expr
-deBruijnE (LFixP t e) = LFixP t <$> case e of
-    AFT.Var x -> do
-        s <- get
-        return $ case elemIndex x s of
-            Just i -> Var i
-            Nothing -> Global x
-    AFT.Const c -> return $ Const c
-    AFT.If b e1 e2 -> If <$> deBruijnE b <*> deBruijnE e1 <*> deBruijnE e2
-    AFT.Ap f x -> Ap <$> deBruijnE f <*> deBruijnE x
-    AFT.Fun s -> Fun <$> auxScope s
-    AFT.Fix s -> Fix <$> auxScope s
-    AFT.Let v s -> Let <$> deBruijnE v <*> auxScope s
-    where auxScope (AFT.Scope n e) = Scope n <$> withPush n (deBruijnE e)
-
-deBruijn :: AFT.Expr -> Expr
-deBruijn e = evalState (deBruijnE e) []
+afttodbt :: AFT.Expr -> Expr
+afttodbt = deBruijn . fromAFT

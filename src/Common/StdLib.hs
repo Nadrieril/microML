@@ -78,4 +78,4 @@ sysCallToValType sc = case sc of
         castProxy :: a -> Proxy a
         castProxy = const Proxy
         wrap :: (StdWrappable a, TypeWrappable a) => a -> (StdLibValue, Type)
-        wrap x = (toStdValue x, Mono . toType $ castProxy x)
+        wrap x = (toStdValue x, TMono . toType $ castProxy x)

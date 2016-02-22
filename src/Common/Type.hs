@@ -39,8 +39,8 @@ data Mono a =
     deriving (Eq, Generic, Functor)
 
 data Poly a =
-      Mono (Mono a)
-    | Bound a (Poly a)
+      TMono (Mono a)
+    | TBound a (Poly a)
     deriving (Eq, Generic, Functor)
 
 type Type = Poly TId
@@ -75,11 +75,11 @@ calcVarName e = evalState (auxMono e) (0, M.empty)
         -- auxPoly :: Poly TId -> State (Int, M.Map TId Name) (Poly Name)
         -- auxPoly t =
         --     case t of
-        --         Mono t -> Mono <$> auxMono t
-        --         Bound i t -> do
+        --         TMono t -> TMono <$> auxMono t
+        --         TBound i t -> do
         --             n <- new
         --             modify (second $ M.insert i n)
-        --             Bound n <$> auxPoly t
+        --             TBound n <$> auxPoly t
         auxMono :: Mono TId -> State (Int, M.Map TId Name) (Mono Name)
         auxMono (TConst t) = return $ TConst t
         auxMono (TVar i) = do
@@ -107,15 +107,15 @@ pattern x :-> y <- (TProduct (Name "->") [x, y]) where
 
 
 free :: Type -> IS.IntSet
-free (Bound i t) = IS.delete i (free t)
-free (Mono t) = f t
+free (TBound i t) = IS.delete i (free t)
+free (TMono t) = f t
     where
         f (TConst _) = IS.empty
         f (TVar i) = IS.singleton i
         f (TProduct _ l) = IS.unions $ fmap f l
 
 bind :: MonoType -> Type
-bind t = IS.foldr Bound (Mono t) (free $ Mono t)
+bind t = IS.foldr TBound (TMono t) (free $ TMono t)
 
 mergeTypes :: MonoType -> MonoType -> MonoType
 mergeTypes (TVar i1) (TVar i2) = TVar (min i1 i2)
