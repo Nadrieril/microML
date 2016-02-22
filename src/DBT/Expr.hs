@@ -15,6 +15,7 @@ import Data.List (elemIndex)
 import Control.Monad.State (State, get, gets, evalState)
 
 import Utils (Stack, withPush)
+import AST.Parse (isOperator)
 import Common.Expr
 import Common.Type
 import qualified AFT.Expr as AFT
@@ -48,6 +49,7 @@ instance Show (LabelledExp (Maybe (Mono Name)) Name) where
                 Var x -> show x
                 Global x -> show x
                 Const c -> show c
+                Ap (expr -> Ap (expr -> Var o) x) y | isOperator o -> printf "(%s %s %s)" (show x) (show o) (show y)
                 Ap f x -> printf "(%s %s)" (show f) (show x)
                 Let x v e -> printf "let %s = %s in\n%s" (show x) (show v) (show e)
                 If b e1 e2 -> printf "if %s then %s else %s" (show b) (show e1) (show e2)
@@ -61,14 +63,24 @@ instance Show TypedExpr where
 
 instance Show (LabelledExp MonoType Name) where
     show (LFixP _ e) = case e of
-        Var i -> show i
-        Global x -> show x
+        Var i -> showIdent i
+        Global x -> showIdent x
         Const c -> show c
         Fun n e -> printf "(\\%s -> %s)" (show n) (show e)
         Fix n e -> printf "fix(\\%s -> %s)" (show n) (show e)
-        Let n v e -> printf "let %s :: %s = %s in\n%s" (show n) (show $ label v) (show v) (show e)
-        Ap f x -> printf "(%s %s)" (show f) (show x)
+        Let n v e -> let (params, v') = unfoldFun v in
+            let paramStr = concatMap ((:) ' ' . show) params in
+            printf "let %s%s = %s :: %s in\n%s" (showIdent n) paramStr (show v') (show $ label v) (show e)
+        Ap (expr -> Ap (expr -> Var o) x) y | isOperator o -> printf "(%s %s %s)" (show x) (show o) (show y)
+        Ap f x@(expr -> Ap _ _) -> printf "%s (%s)" (show f) (show x)
+        Ap f x -> printf "%s %s" (show f) (show x)
         If b e1 e2 -> printf "if %s then %s else %s" (show b) (show e1) (show e2)
+        where
+            showIdent n = (if isOperator n then printf "(%s)" else id) (show n)
+            unfoldFun (expr -> Fun n e) =
+                let (l, e') = unfoldFun e in
+                (n:l, e')
+            unfoldFun x = ([], x)
 
 
 
@@ -78,7 +90,11 @@ calcVarName e = evalState (calcVarName'' e) []
 calcVarName'' :: LabelledExp l Id -> State (Stack Name) (LabelledExp l Name)
 calcVarName'' (LFixP l e) = LFixP l <$>
     case e of
-        Var i -> Var <$> gets (!! i)
+        Var i -> do
+            stk <- get
+            return $ Var $ if i < length stk
+                then stk !! i
+                else Name $ printf "#%d" i
         Global x -> return $ Global x
         Const c -> return $ Const c
         Fun n e -> withPush n (Fun n <$> calcVarName'' e)

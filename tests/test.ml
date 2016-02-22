@@ -1,2 +1,2 @@
-let rec fact = fun x -> if x == 0 then 1 else x*(fact (x-1)) in
-fact 5
+let rec fac = fun n -> if n==0 then 1 else n * fac (n-1) in
+fac 4

@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric, PatternSynonyms, FlexibleInstances #-}
 module Common.Type
     ( TId
     , TConst(..)
@@ -6,14 +6,24 @@ module Common.Type
     , Poly(..)
     , MonoType
     , Type
+    , pattern TTuple
+    , pattern (:->)
+    , bind
     , free
     , mergeTypes
     ) where
 
 import GHC.Generics (Generic)
+import Data.List (intercalate)
 import Data.Hashable (Hashable)
+import qualified Data.Map as M
 import qualified Data.IntSet as IS
+import Control.Arrow (first, second)
+import Control.Monad.State (State, gets, modify, evalState)
 import Text.Printf (printf)
+
+import Common.Expr (Name(..))
+
 
 infixr 4 :->
 
@@ -24,8 +34,8 @@ data TConst = TBool | TInt
 
 data Mono a =
       TConst TConst
-    | Mono a :-> Mono a
     | TVar a
+    | TProduct Name [Mono a]
     deriving (Eq, Generic, Functor)
 
 data Poly a =
@@ -41,19 +51,59 @@ instance Show TConst where
     show TBool = "Bool"
     show TInt = "Int"
 
-instance Show a => Show (Mono a) where
-    show (TConst t) = show t
-    show (TVar v) = printf "#%s" (show v)
-    show (t1 :-> t2) = printf "(%s -> %s)" (show t1) (show t2)
+instance Show (Mono TId) where
+    show = show . calcVarName
 
-instance Show a => Show (Poly a) where
-    show (Mono t) = show t
-    show (Bound v t) = printf "\\#%s.%s" (show v) (show t)
+instance Show (Mono Name) where
+    show (TConst t) = show t
+    show (TVar v) = printf "%s" (show v)
+    show t@(_ :-> _) = printf "(%s)" (intercalate " -> " $ map show $ foldarrow t)
+        where
+            foldarrow (t1 :-> t2) = t1:foldarrow t2
+            foldarrow x = [x]
+    show (TTuple t1 t2) = printf "(%s, %s)" (show t1) (show t2)
+    show (TProduct n l) = printf "%s%s" (show n) (show l)
+
+
+calcVarName :: Mono TId -> Mono Name
+calcVarName e = evalState (auxMono e) (0, M.empty)
+    where
+        new :: State (Int, M.Map TId Name) Name
+        new = (Name . iToName <$> gets fst)
+                <* modify (first (+1))
+            where iToName = (:[]) . toEnum . (fromEnum 'a' +)
+        -- auxPoly :: Poly TId -> State (Int, M.Map TId Name) (Poly Name)
+        -- auxPoly t =
+        --     case t of
+        --         Mono t -> Mono <$> auxMono t
+        --         Bound i t -> do
+        --             n <- new
+        --             modify (second $ M.insert i n)
+        --             Bound n <$> auxPoly t
+        auxMono :: Mono TId -> State (Int, M.Map TId Name) (Mono Name)
+        auxMono (TConst t) = return $ TConst t
+        auxMono (TVar i) = do
+            nameMap <- gets snd
+            TVar <$> if i `M.member` nameMap
+                then return $ nameMap M.! i
+                else do
+                    n <- new
+                    modify (second $ M.insert i n)
+                    return n
+        auxMono (TProduct n l) = TProduct n <$> mapM auxMono l
+
+
 
 
 instance Hashable TConst
 instance Hashable a => Hashable (Mono a)
 instance Hashable a => Hashable (Poly a)
+
+
+pattern TTuple x y <- (TProduct (Name ",") [x, y]) where
+        TTuple x y = TProduct (Name ",") [x, y]
+pattern x :-> y <- (TProduct (Name "->") [x, y]) where
+        x :-> y = TProduct (Name "->") [x, y]
 
 
 free :: Type -> IS.IntSet
@@ -62,13 +112,17 @@ free (Mono t) = f t
     where
         f (TConst _) = IS.empty
         f (TVar i) = IS.singleton i
-        f (t1 :-> t2) = IS.union (f t1) (f t2)
+        f (TProduct _ l) = IS.unions $ fmap f l
 
+bind :: MonoType -> Type
+bind t = IS.foldr Bound (Mono t) (free $ Mono t)
 
 mergeTypes :: MonoType -> MonoType -> MonoType
 mergeTypes (TVar i1) (TVar i2) = TVar (min i1 i2)
 mergeTypes (TVar _) t2 = t2
 mergeTypes t1 (TVar _) = t1
-mergeTypes (t11 :-> t12) (t21 :-> t22) = mergeTypes t11 t21 :-> mergeTypes t12 t22
+mergeTypes (TProduct n1 tl1) (TProduct n2 tl2)
+    | n1 == n2 = TProduct n1 $ zipWith mergeTypes tl1 tl2
+    | otherwise = error $ printf "Cannot merge different types (%s and %s)" (show n1) (show n2)
 mergeTypes t1 t2 | t1 == t2 = t1
                  | otherwise = error $ printf "Cannot merge different types (%s and %s)" (show t1) (show t2)

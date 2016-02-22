@@ -7,6 +7,7 @@ import Data.Typeable (Typeable)
 import Text.Printf (printf)
 import qualified Data.Map as M
 import qualified Data.IntSet as IS
+import Control.Monad (zipWithM_)
 import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, get, put, modify, evalState)
 
@@ -16,6 +17,7 @@ import qualified Utils.UnionFind as UF
 import qualified DBT.Expr as DBT
 import qualified Common.StdLib as StdLib
 import Common.Expr
+import Common.ADT
 import Common.Type
 import DBT.Expr
 
@@ -49,15 +51,18 @@ union :: MonoType -> MonoType -> Env r ()
 union x y = modify (UF.union' mergeTypes x y)
 
 find :: MonoType -> Env r MonoType
-find (t1 :-> t2) = (:->) <$> find t1 <*> find t2
+find (TProduct n tl) = TProduct n <$> mapM find tl
 find t = do
     t <- state (UF.find t)
     case t of
-        (_ :-> _) -> do -- We can unify further both sides
+        (TProduct _ _) -> autoUnion t
+        _ -> return t
+    where
+        autoUnion :: MonoType -> Env r MonoType
+        autoUnion t = do -- We can unify further both sides
             t' <- find t
             t `union` t'
             return t'
-        _ -> return t
 
 getType :: Id -> Env r Type
 getType i = (!! i) <$> get
@@ -75,24 +80,26 @@ unify t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
     unify_ t1 t2
     where
         unify_ :: MonoType -> MonoType -> Env r ()
-        unify_ (t11 :-> t12) (t21 :-> t22) = unify_ t11 t21 >> unify_ t12 t22
         unify_ t1@(TVar _) t2 = t1 `union` t2
         unify_ t1 t2@(TVar _) = t1 `union` t2
+        unify_ (TProduct n1 tl1) (TProduct n2 tl2)
+            | n1 == n2 = zipWithM_ unify_ tl1 tl2
+            | otherwise = error $ printf "Cannot unify %s and %s" (show n1) (show n2)
         unify_ t1 t2 | t1 == t2 = return ()
                      | otherwise = error $ printf "Cannot unify %s and %s" (show t1) (show t2)
 
 
-bind :: MonoType -> Env r Type
-bind t = do
+partialBind :: MonoType -> Env r Type
+partialBind t = do
     t <- Mono <$> find t
     let freeInT = free t
     stk <- get
     let freeInStack = IS.unions (map free stk)
     return $ IS.foldr Bound t (freeInT IS.\\ freeInStack)
 
-typeof :: Value -> TConst
-typeof (B _) = TBool
-typeof (I _) = TInt
+typeof :: Value -> Mono a
+typeof (B _) = TConst TBool
+typeof (I _) = TConst TInt
 
 projectType :: Mono Name -> Env r MonoType
 projectType t = evalState (M.empty :: M.Map Name Int) (f t)
@@ -107,7 +114,7 @@ projectType t = evalState (M.empty :: M.Map Name Int) (f t)
                     i <- freshV
                     put (M.insert n i state)
                     return $ TVar i
-        f (t1 :-> t2) = (:->) <$> f t1 <*> f t2
+        f (TProduct n tl) = TProduct n <$> mapM f tl
 
 inferTypeE :: DBT.Expr -> Env r TypedExpr
 inferTypeE (LFixP t e) =
@@ -121,7 +128,7 @@ inferTypeE (LFixP t e) =
 
     where e' = case e of
             DBT.Const c ->
-                return $ LFixP (TConst $ typeof c) (Const c)
+                return $ LFixP (typeof c) (Const c)
 
             DBT.Var x -> do
                 t <- getType x
@@ -129,7 +136,9 @@ inferTypeE (LFixP t e) =
                 return $ LFixP s (Var x)
 
             DBT.Global x -> do
-                let t = StdLib.sysCallToType $ StdLib.getSysCall x
+                let t = if x `M.member` adtFunMap
+                        then adtFunMap M.! x
+                        else StdLib.sysCallToType $ StdLib.getSysCall x
                 s <- inst t
                 return $ LFixP s (Global x)
 
@@ -162,7 +171,7 @@ inferTypeE (LFixP t e) =
             DBT.Let n v e -> do
                 LFixP t v <- inferTypeE v
                 t <- find t
-                t' <- bind t
+                t' <- partialBind t
                 e <- localPush t' $ inferTypeE e
                 return $ LFixP (label e) (Let n (LFixP t v) e)
 

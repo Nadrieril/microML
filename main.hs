@@ -20,7 +20,7 @@ import DBT.Infer (inferType)
 
 import qualified ASM.Instr as ASM
 import qualified ASM.Eval as ASM
-
+import Common.ADT
 
 class Show a => Evaluable a where
     eval :: a -> String
@@ -42,16 +42,20 @@ testCode stage code =
       Left err -> putStrLn $ "Error: " ++ show err
     --   Left err -> fail (show err)
       Right ast -> do
-        printStage 1 stage ast
+        -- printStage 1 stage ast
 
         let aft = fromAST ast
-        printStage 2 stage aft
+        -- printStage 2 stage aft
 
         let dbt = deBruijn aft
-        printStage 3 stage dbt
+        -- printStage 3 stage dbt
 
         let typed = inferType dbt
-        printStage 4 stage typed
+        -- printStage 4 stage typed
+        print typed
+        putStrLn ""
+        evalStage dbt
+        putStrLn ""
 
         let compiled = ASM.compile dbt
         printStage 5 stage compiled
@@ -59,10 +63,11 @@ testCode stage code =
     where printStage i stage tree =
             when (stage == 0 || stage == i) $ do
                 print tree
-                catch
-                    (putStrLn $ "-> " ++ eval tree)
-                    (\(err::SomeException) -> putStrLn $ "Error: " ++ show err)
+                evalStage tree
                 putStrLn ""
+          evalStage tree =
+                catch (putStrLn $ "-> " ++ eval tree)
+                      (\(err::SomeException) -> putStrLn $ "Error: " ++ show err)
 
 
 
@@ -78,8 +83,6 @@ main = do
 
     putStrLn ""
     testFile 0 "tests/test.ml"
-
-    -- print $ ASM.eval ASM.example
 
     where
         testFile stage file = do

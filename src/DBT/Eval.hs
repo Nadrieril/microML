@@ -6,42 +6,57 @@ module DBT.Eval
     , eval
     ) where
 
+import Data.List (elemIndex)
+import Data.Maybe (fromJust)
+import qualified Data.Map as M
 import Text.Printf (printf)
+import Data.Foldable (foldrM)
 import Control.Monad.State (State, evalState, get, put)
+import qualified Debug.Trace as T
 
 import Utils (push, local)
+import AST.Parse (isOperator)
 import qualified Common.StdLib as StdLib
 import Common.Expr
+import Common.ADT
 import DBT.Expr
 
 
 type Env e = [Val e]
 
 data Val e =
-    VInt Integer
-  | VBool Bool
+    Val Value
   | VFun (Env e) e
   | VSysCall (Val e -> Eval e)
+  | VConstructor (ADT Name) Int Int [Val e]
+  | VDeconstructor (ADT Name) Int [Val e]
 
 instance Show e => Show (Val e) where
-  show (VInt i) = printf "VInt %s" (show i)
-  show (VBool b) = printf "VBool %s" (show b)
-  show (VFun _ e) = printf "VFun(\\%s)" (show e)
-  show VSysCall{} = printf "VSysCall"
+    show (Val x) = printf "Val %s" (show x)
+    show (VFun _ e) = printf "VFun(\\%s)" (show e)
+    show VSysCall{} = printf "VSysCall"
+    show (VConstructor adt n _ l) = let name = constructorName (adtConstructors adt !! n) in
+        case reverse l of
+            [x, y] | isOperator name -> printf "(%s %s %s)" (show x) (show name) (show y)
+            l -> printf "%s%s" (show name) (show l)
+    show (VDeconstructor adt _ _) = printf "%s.." (show $ deconstructorName adt)
 
 type Eval e = State (Env e) (Val e)
 
 
 evalSysCall :: Name -> Val Expr
-evalSysCall sc = aux $ StdLib.sysCallToValue $ StdLib.getSysCall sc
+evalSysCall x | x `M.member` adtMap =
+        let adt = fst $ adtMap M.! x in
+        if x == deconstructorName adt
+            then VDeconstructor adt (length $ adtConstructors adt) []
+            else let n = fromJust (x `elemIndex` map constructorName (adtConstructors adt)) in
+                let Constructor _ p = adtConstructors adt !! n in
+                VConstructor adt n (length p) []
+
+evalSysCall x = aux $ StdLib.sysCallToValue $ StdLib.getSysCall x
     where
-        tr (VInt i) = I i
-        tr (VBool b) = B b
-        tr v = error $ printf "Error: attempting to evaluate %s as value" (show v)
-        tr' (I i) = VInt i
-        tr' (B b) = VBool b
-        aux (StdLib.Val v) = tr' v
-        aux (StdLib.Fun f) = VSysCall (return . aux . f . tr)
+        aux (StdLib.Val v) = Val v
+        aux (StdLib.Fun f) = VSysCall (\(Val x) -> return $ aux (f x))
 
 evalAp :: Val Expr -> Val Expr -> Eval Expr
 evalAp (VFun stk e) y =
@@ -50,18 +65,26 @@ evalAp (VFun stk e) y =
         push y
         evalE e
 evalAp (VSysCall f) y = f y
-evalAp v _ = error $ printf "Error: attempting to evaluate %s as function" (show v)
+evalAp (VConstructor _ _ 0 _) _ = error "Attempting to evaluate product as function"
+evalAp (VConstructor adt n i l) x = return $ VConstructor adt n (i-1) (x:l)
+evalAp (VDeconstructor (adtName -> n) 0 _) (VConstructor (adtName -> n') _ 0 _)
+        | n /= n' = error $ printf "Attempting to deconstruct %s value as a %s" (show n) (show n')
+evalAp (VDeconstructor _ 0 p) (VConstructor _ n 0 l) = do
+        let f = p !! (length p - 1 - n)
+        foldrM (flip evalAp) f l
+evalAp (VDeconstructor _ 0 _) _ = error "Attempting to deconstruct non-product value"
+evalAp (VDeconstructor adt i p) x = return $ VDeconstructor adt (i-1) (x:p)
+evalAp v _ = error $ printf "Error: attempting to evaluate %s as a function" (show v)
 
 evalE :: Expr -> Eval Expr
 evalE (expr -> Var i) = (!! i) <$> get
 evalE (expr -> Global g) = return $ evalSysCall g
-evalE (expr -> Const (B b)) = return $ VBool b
-evalE (expr -> Const (I i)) = return $ VInt i
+evalE (expr -> Const x) = return $ Val x
 evalE (expr -> If b e1 e2) = do
     vb <- evalE b
     case vb of
-        VBool True -> evalE e1
-        VBool False -> evalE e2
+        Val (B True) -> evalE e1
+        Val (B False) -> evalE e2
         v -> error $ printf "Error: attempting to evaluate %s as bool" (show v)
 evalE (expr -> Fun _ e) = do
     stk <- get

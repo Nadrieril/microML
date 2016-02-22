@@ -5,8 +5,7 @@ module ASM.Instr where
 import Control.Eff (Member, Eff, run)
 import Control.Eff.Writer.Strict (Writer, tell, runWriter)
 
-import Common.Expr (Name(..), Value(..), SysCall(..), LFixP(..))
-import qualified Common.StdLib as Std (getSysCall)
+import Common.Expr (Name(..), Value(..), LFixP(..))
 import qualified DBT.Expr as DBT (Expr, AbstractExpr(..))
 
 
@@ -22,7 +21,7 @@ data Instr =
     | Endlet
     | Branchneg Id
     | Branch Id
-    | SysCall SysCall
+    | SysCall Name
     | Push Value
     deriving (Show)
 
@@ -32,8 +31,6 @@ type Env r e = (Member (Writer Instr) r) => Eff r e
 tellall :: [Instr] -> Env r ()
 tellall = mapM_ tell
 
-getSysCall :: Name -> Instr
-getSysCall x = Cur [Cur [Access 0, Access 1, SysCall (Std.getSysCall x)]]
 
 compileE :: DBT.Expr -> Env r ()
 compileE (expr -> e) = case e of
@@ -41,7 +38,7 @@ compileE (expr -> e) = case e of
 
     DBT.Var x -> tell $ Access x
 
-    DBT.Global x -> tell $ getSysCall x
+    DBT.Global x -> tell $ SysCall x
 
     DBT.If b e1 e2 -> do
         let c1 = compile e1
