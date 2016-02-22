@@ -6,7 +6,7 @@ import Control.Eff (Member, Eff, run)
 import Control.Eff.Writer.Strict (Writer, tell, runWriter)
 
 import Common.Expr (Name(..), Value(..), LFixP(..))
-import qualified DBT.Expr as DBT (Expr, AbstractExpr(..))
+import qualified DBT.Expr as DBT
 
 
 type Id = Int
@@ -54,16 +54,18 @@ compileE (expr -> e) = case e of
         compileE f
         tell Apply
 
-    DBT.Fun _ e -> tell $ Cur (compile e)
+    DBT.SFun e -> tell $ Cur (compile e)
 
-    DBT.Fix _ (expr -> DBT.Fun _ e) -> tell $ Rec (compile e)
-    DBT.Fix _ _ -> error "cannot compile arbitrary recursive definition"
+    DBT.SFix (expr -> DBT.SFun e) -> tell $ Rec (compile e)
+    DBT.SFix _ -> error "cannot compile arbitrary recursive definition"
 
-    DBT.Let _ v e -> do
+    DBT.SLet v e -> do
         compileE v
         tell Let
         compileE e
         tell Endlet
+
+    _ -> error "impossible"
 
 compile :: DBT.Expr -> [Instr]
 compile e = fst $ run $

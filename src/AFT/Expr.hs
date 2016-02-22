@@ -1,8 +1,9 @@
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, PatternSynonyms #-}
 -- ASM = Abstract Functional Tree
 module AFT.Expr
     ( Expr
     , AbstractExpr(..)
+    , Scope(..)
     , fromAST
     ) where
 
@@ -17,11 +18,20 @@ import qualified AST.Expr as AST
 data AbstractExpr v a =
       Var v
     | Const Value
-    | Fun v a
-    | Fix v a
+    | Fun (Scope v a)
+    | Fix (Scope v a)
     | Ap a a
-    | Let v a a
+    | Let a (Scope v a)
     | If a a a
+
+data Scope v e = Scope v e
+
+pattern SFun n e <- Fun (Scope n e) where
+    SFun n e = Fun (Scope n e)
+pattern SFix n e <- Fix (Scope n e) where
+    SFix n e = Fix (Scope n e)
+pattern SLet n v e <- Let v (Scope n e) where
+    SLet n v e = Let v (Scope n e)
 
 type LabelledExp l v = LFixP l (AbstractExpr v)
 
@@ -37,10 +47,11 @@ showE :: Show v => UntypedExpr v -> String
 showE (Var x) = show x
 showE (Const c) = show c
 showE (Ap f x) = printf "(%s %s)" (show f) (show x)
-showE (Fun x e) = printf "(\\%s -> %s)" (show x) (show e)
-showE (Fix f e) = printf "fix(\\%s -> %s)" (show f) (show e)
-showE (Let x v e) = printf "let %s = %s in\n%s" (show x) (show v) (show e)
+showE (SFun x e) = printf "(\\%s -> %s)" (show x) (show e)
+showE (SFix f e) = printf "fix(\\%s -> %s)" (show f) (show e)
+showE (SLet x v e) = printf "let %s = %s in\n%s" (show x) (show v) (show e)
 showE (If b e1 e2) = printf "if %s then %s else %s" (show b) (show e1) (show e2)
+showE _ = error "impossible"
 
 mergeMaybe :: Maybe a -> Maybe a -> Maybe a
 mergeMaybe a b = case a of
@@ -56,11 +67,11 @@ fromAST (LFixP t e) = LFixP t $
     case e of
         AST.Var v -> Var v
         AST.Const c -> Const c
-        AST.Fun n e -> Fun n (fromAST e)
+        AST.Fun n e -> SFun n (fromAST e)
         AST.Ap f x -> Ap (fromAST f) (fromAST x)
         AST.If b e1 e2 -> If (fromAST b) (fromAST e1) (fromAST e2)
         AST.Infix o e1 e2 -> Ap (untyped $ Ap (untyped $ Var o) (fromAST e1)) (fromAST e2)
-        AST.Let x v e -> Let x (fromAST v) (fromAST e)
-        AST.LetR f v e -> Let f (untyped $ Fix f (fromAST v)) (fromAST e)
+        AST.Let x v e -> SLet x (fromAST v) (fromAST e)
+        AST.LetR f v e -> SLet f (untyped $ SFix f (fromAST v)) (fromAST e)
         AST.Wrap _ -> error "impossible"
     where untyped = LFixP Nothing

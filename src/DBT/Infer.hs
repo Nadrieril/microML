@@ -119,61 +119,64 @@ projectType t = evalState (M.empty :: M.Map Name Int) (f t)
 inferTypeE :: DBT.Expr -> Env r TypedExpr
 inferTypeE (LFixP t e) =
     case t of
-        Nothing -> e'
+        Nothing -> infE
         Just t -> do
-            LFixP t' e'' <- e'
+            e'' <- infE
             t <- projectType t
-            unify t t'
-            return $ LFixP t' e''
+            unify t (label e'')
+            return e''
 
-    where e' = case e of
-            DBT.Const c ->
+    where infE = case e of
+            Const c ->
                 return $ LFixP (typeof c) (Const c)
 
-            DBT.Var x -> do
+            Var x -> do
                 t <- getType x
                 s <- inst t
                 return $ LFixP s (Var x)
 
-            DBT.Global x -> do
+            Global x -> do
                 let t = if x `M.member` adtFunMap
                         then adtFunMap M.! x
                         else StdLib.sysCallToType $ StdLib.getSysCall x
                 s <- inst t
                 return $ LFixP s (Global x)
 
-            DBT.If b e1 e2 -> do
-                b@(LFixP tb _) <- inferTypeE b
-                unify tb (TConst TBool)
-                e1@(LFixP t1 _) <- inferTypeE e1
-                e2@(LFixP t2 _) <- inferTypeE e2
-                unify t1 t2
-                return $ LFixP t1 (If b e1 e2)
+            If b e1 e2 -> do
+                b <- inferTypeE b
+                unify (label b) (TConst TBool)
+                e1 <- inferTypeE e1
+                e2 <- inferTypeE e2
+                unify (label e1) (label e2)
+                return $ LFixP (label e1) (If b e1 e2)
 
-            DBT.Ap f x -> do
-                f@(LFixP tf _) <- inferTypeE f
-                x@(LFixP tx _) <- inferTypeE x
+            Ap f x -> do
+                f <- inferTypeE f
+                x <- inferTypeE x
                 t <- TVar <$> freshV
-                unify tf (tx :-> t)
+                unify (label f) (label x :-> t)
                 return $ LFixP t (Ap f x)
 
-            DBT.Fun n e -> do
+            Fun s -> do
                 t <- TVar <$> freshV
-                e <- localPush (Mono t) $ inferTypeE e
-                return $ LFixP (t :-> label e) (Fun n e)
+                s@(Scope _ e) <- inferScope (Mono t) s
+                return $ LFixP (t :-> label e) (Fun s)
 
-            DBT.Fix n e -> do
+            Fix s -> do
                 t <- TVar <$> freshV
-                e <- localPush (Mono t) $ inferTypeE e
+                s@(Scope _ e) <- inferScope (Mono t) s
                 unify t (label e)
-                return $ LFixP t (Fix n e)
+                return $ LFixP t (Fix s)
 
-            DBT.Let n v e -> do
+            Let v s -> do
                 LFixP t v <- inferTypeE v
                 t <- find t
                 t' <- partialBind t
-                e <- localPush t' $ inferTypeE e
-                return $ LFixP (label e) (Let n (LFixP t v) e)
+                s@(Scope _ e) <- inferScope t' s
+                return $ LFixP (label e) (Let (LFixP t v) s)
+
+          inferScope :: Type -> Scope DBT.Expr -> Env r (Scope TypedExpr)
+          inferScope t (Scope n e) = Scope n <$> localPush t (inferTypeE e)
 
 
 inferType :: DBT.Expr -> TypedExpr

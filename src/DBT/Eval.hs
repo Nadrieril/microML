@@ -86,16 +86,16 @@ evalE (expr -> If b e1 e2) = do
         Val (B True) -> evalE e1
         Val (B False) -> evalE e2
         v -> error $ printf "Error: attempting to evaluate %s as bool" (show v)
-evalE (expr -> Fun _ e) = do
+evalE (expr -> SFun e) = do
     stk <- get
     return $ VFun stk e
-evalE (expr -> Fix _ e) =
+evalE (expr -> SFix e) =
     local $ do
         rec
             push body
             body <- evalE e
         return body
-evalE (expr -> Let _ v e) = do
+evalE (expr -> SLet v e) = do
     vv <- evalE v
     local $ do
         push vv
