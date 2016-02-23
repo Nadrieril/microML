@@ -1,2 +1,4 @@
-let rec fac = fun n -> if n==0 then 1 else n * fac (n-1) in
-fac 4
+let id = fun x -> x in
+let x = 1+true in
+let y = if 42 then id else false in
+x

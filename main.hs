@@ -2,7 +2,7 @@
 module Main where
 
 -- import Control.Monad (forM_)
-import Control.Monad (when)
+import Control.Monad
 -- import Control.Exception (throwIO, IOException)
 import Control.Exception
 -- import System.Directory (getDirectoryContents, doesFileExist)
@@ -50,15 +50,19 @@ testCode stage code =
         let dbt = afttodbt aft
         -- printStage 3 stage dbt
 
-        let typed = inferType dbt
+        let (errors, typed) = inferType dbt
         -- printStage 4 stage typed
         print typed
         putStrLn ""
-        evalStage dbt
+        if not $ null errors
+            then do
+                putStrLn "Errors encountered while inferring types:"
+                putStr $ unlines $ map (("  "++) . show) errors
+            else evalStage dbt
         putStrLn ""
 
-        let compiled = ASM.compile dbt
-        printStage 5 stage compiled
+        -- let compiled = ASM.compile dbt
+        -- printStage 5 stage compiled
 
     where printStage i stage tree =
             when (stage == 0 || stage == i) $ do

@@ -10,6 +10,7 @@ import qualified Data.IntSet as IS
 import Control.Monad (zipWithM_)
 import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, get, put, modify, evalState)
+import Control.Eff.Writer.Strict (Writer, tell, runWriter)
 
 import Utils (Stack)
 import qualified Utils (trace)
@@ -24,7 +25,19 @@ import DBT.Expr
 trace :: Show a => a -> b -> b
 trace = Utils.trace False
 
-type Env r e = (Member (State Int) r, Member (State (Stack Type)) r, Member (State (UF.UnionFind MonoType)) r) => Eff r e
+
+data UnificationError = UnificationError TypedExpr MonoType MonoType
+
+instance Show UnificationError where
+  show (UnificationError e t1 t2) = printf "Cannot unify %s and %s in (%s)" (show t1) (show t2) (show e)
+
+
+type Env r e = (
+    Member (State Int) r,
+    Member (State (Stack Type)) r,
+    Member (State (UF.UnionFind MonoType)) r,
+    Member (Writer UnificationError) r)
+    => Eff r e
 
 
 state :: (Typeable s, Member (State s) r) => (s -> (a, s)) -> Eff r a
@@ -73,8 +86,8 @@ inst (TBound i t) = do
     i' <- freshV
     inst $ fmap (\j -> if i==j then i' else j) t
 
-unify :: MonoType -> MonoType -> Env r ()
-unify t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
+unify :: TypedExpr -> MonoType -> MonoType -> Env r ()
+unify e t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
     t1 <- find t1
     t2 <- find t2
     unify_ t1 t2
@@ -84,9 +97,9 @@ unify t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
         unify_ t1 t2@(TVar _) = t1 `union` t2
         unify_ (TProduct n1 tl1) (TProduct n2 tl2)
             | n1 == n2 = zipWithM_ unify_ tl1 tl2
-            | otherwise = error $ printf "Cannot unify %s and %s" (show n1) (show n2)
-        unify_ t1 t2 | t1 == t2 = return ()
-                     | otherwise = error $ printf "Cannot unify %s and %s" (show t1) (show t2)
+        unify_ t1 t2
+            | t1 == t2 = return ()
+            | otherwise = tell $ UnificationError e t1 t2
 
 
 partialBind :: MonoType -> Env r Type
@@ -123,7 +136,7 @@ inferTypeE (LFixP t e) =
         Just t -> do
             e'' <- infE
             t <- projectType t
-            unify t (label e'')
+            unify e'' t (label e'')
             return e''
 
     where infE = case e of
@@ -144,18 +157,20 @@ inferTypeE (LFixP t e) =
 
             If b e1 e2 -> do
                 b <- inferTypeE b
-                unify (label b) (TConst TBool)
                 e1 <- inferTypeE e1
                 e2 <- inferTypeE e2
-                unify (label e1) (label e2)
-                return $ LFixP (label e1) (If b e1 e2)
+                let e = LFixP (label e1) (If b e1 e2)
+                unify e (label b) (TConst TBool)
+                unify e (label e1) (label e2)
+                return e
 
             Ap f x -> do
                 f <- inferTypeE f
                 x <- inferTypeE x
                 t <- TVar <$> freshV
-                unify (label f) (label x :-> t)
-                return $ LFixP t (Ap f x)
+                let e = LFixP t (Ap f x)
+                unify e (label f) (label x :-> t)
+                return e
 
             Fun s -> do
                 t <- TVar <$> freshV
@@ -165,8 +180,9 @@ inferTypeE (LFixP t e) =
             Fix s -> do
                 t <- TVar <$> freshV
                 s@(Scope _ e) <- inferScope (TMono t) s
-                unify t (label e)
-                return $ LFixP t (Fix s)
+                let e' = LFixP t (Fix s)
+                unify e' t (label e)
+                return e'
 
             Let v s -> do
                 LFixP t v <- inferTypeE v
@@ -179,11 +195,12 @@ inferTypeE (LFixP t e) =
           inferScope t (Scope n e) = Scope n <$> localPush t (inferTypeE e)
 
 
-inferType :: DBT.Expr -> TypedExpr
+inferType :: DBT.Expr -> ([UnificationError], TypedExpr)
 inferType e = run $
     evalState (0 :: Int) $
     evalState ([] :: Stack Type) $
-    evalState (UF.empty :: UF.UnionFind MonoType) $ do
+    evalState (UF.empty :: UF.UnionFind MonoType) $
+    runWriter (:) ([] :: [UnificationError]) $ do
         LFixP t e <- inferTypeE e
         t <- find t
         let e' = LFixP t e
