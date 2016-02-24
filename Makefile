@@ -1,3 +1,4 @@
 all:
 	stack build
-	stack exec main
+	# ./microml compile tests/test.ml | ./microml run --trace -
+	./microml eval --show tests/test.ml

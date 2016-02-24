@@ -1,6 +1,7 @@
 {-# LANGUAGE RankNTypes, FlexibleContexts #-}
 module DBT.Infer
     ( inferType
+    , UnificationError
     ) where
 
 import Data.Typeable (Typeable)

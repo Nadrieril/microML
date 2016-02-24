@@ -4,7 +4,7 @@ name:           microML
 version:        0.0.1
 author:         Nadrieril
 
-executable main
+executable microml
     main-is: main.hs
     hs-source-dirs: ., src
     other-modules:
@@ -30,6 +30,7 @@ executable main
         RecordWildCards
         ScopedTypeVariables
         ViewPatterns
+        DeriveGeneric
 
     build-depends:
           base
@@ -41,5 +42,6 @@ executable main
         , directory
         , hashable
         , extensible-effects
+        , options
 
     ghc-options: -Wall -fno-warn-missing-signatures -fno-warn-name-shadowing -fno-warn-unused-do-bind -O0

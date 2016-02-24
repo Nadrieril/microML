@@ -7,9 +7,10 @@ import Data.Maybe (fromJust)
 import Data.List (elemIndex)
 import qualified Data.Map as M
 import qualified Debug.Trace as T
-import Control.Monad (replicateM_, void, unless, forM_)
+import Control.Monad (replicateM_, void, unless, forM_, when)
 import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, evalState)
+import Control.Eff.Reader.Strict (Reader, ask, runReader)
 import Utils.ProxyStateEff (get, put, modify)
 import Text.Printf (printf)
 
@@ -108,7 +109,8 @@ evalSysCall x = return $ case Std.sysCallToValue (Std.getSysCall x) of
 
 
 type ASMEval r e =
-    ( Member (State Code) r
+    ( Member (Reader Bool) r
+    , Member (State Code) r
     , Member (State Env) r
     , Member (State ValStack) r
     , Member (State CallStack) r
@@ -193,10 +195,12 @@ evalInstr c = case c of
 
 evalE :: ASMEval r Value
 evalE = do
-    get code >>= T.traceShowM
-    get env >>= T.traceShowM
-    get callstack >>= T.traceShowM
-    get valstack >>= T.traceShowM
+    debug <- ask
+    when debug $ do
+        get code >>= T.traceShowM
+        get env >>= T.traceShowM
+        get callstack >>= T.traceShowM
+        get valstack >>= T.traceShowM
 
     popM code >>= \case
         Nothing -> do
@@ -207,13 +211,14 @@ evalE = do
                 else push code Return >> evalE
 
         Just c -> do
-            T.traceM ("> " ++ show c ++ "\n")
+            when debug $ T.traceM ("> " ++ show c ++ "\n")
             evalInstr c
             evalE
 
 
-eval :: Code -> Value
-eval c = run $
+eval :: Bool -> Code -> Value
+eval debug c = run $
+    flip runReader debug $
     evalState c $
     evalState (Env []) $
     evalState (ValStack []) $

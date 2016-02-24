@@ -23,7 +23,7 @@ data Instr =
     | Branch Id
     | SysCall Name
     | Push Value
-    deriving (Show)
+    deriving (Show, Read)
 
 
 type Env r e = (Member (Writer Instr) r) => Eff r e
