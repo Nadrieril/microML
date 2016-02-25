@@ -81,12 +81,12 @@ typed p = flip LFixP <$> p <*> optionMaybe (reservedOp "::" >> typ)
 
 -----------------------
 operators :: forall st. [[Operator Char st (UntypedExpr Name)]]
-operators = [ [l "&&"]
-            , [l "||"]
-            , [l "=="]
-            , [neg]
+operators = [ [neg]
             , [l "*", l "/"]
             , [l "+", l "-"]
+            , [l "=="]
+            , [l "&&"]
+            , [l "||"]
             , [anythingelse]
             , [r "$"]
             , [l ","]
