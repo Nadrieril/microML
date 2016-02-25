@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, PatternSynonyms #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, PatternSynonyms, OverloadedStrings #-}
 -- ASM = Abstract Functional Tree
 module AFT.Expr
     ( Expr
@@ -70,6 +70,7 @@ fromAST (LFixP t e) = LFixP t $
         AST.Fun n e -> SFun n (fromAST e)
         AST.Ap f x -> Ap (fromAST f) (fromAST x)
         AST.If b e1 e2 -> If (fromAST b) (fromAST e1) (fromAST e2)
+        AST.Negate e -> Ap (untyped $ Ap (untyped $ Var "-") (untyped $ Const $ I 0)) (fromAST e)
         AST.Infix o e1 e2 -> Ap (untyped $ Ap (untyped $ Var o) (fromAST e1)) (fromAST e2)
         AST.Let x v e -> SLet x (fromAST v) (fromAST e)
         AST.LetR f v e -> SLet f (untyped $ SFix f (fromAST v)) (fromAST e)

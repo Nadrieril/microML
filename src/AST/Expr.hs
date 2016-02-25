@@ -18,6 +18,7 @@ data AbstractExpr v a =
       Var v
     | Const Value
     | Infix v a a
+    | Negate a
     | Ap a a
     | Let v a a
     | LetR v a a
@@ -39,6 +40,7 @@ showE :: Show v => AbstractExpr v (TypedExpr v) -> String
 showE (Var x) = show x
 showE (Const c) = show c
 showE (Infix o x y) = printf "(%s %s %s)" (show x) (show o) (show y)
+showE (Negate x) = printf "-%s" (show x)
 showE (Ap f x) = printf "(%s %s)" (show f) (show x)
 showE (Let x v e) = printf "let %s = %s in\n%s" (show x) (show v) (show e)
 showE (LetR x v e) = printf "let rec %s = %s in\n%s" (show x) (show v) (show e)

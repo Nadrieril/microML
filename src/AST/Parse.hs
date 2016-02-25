@@ -92,12 +92,13 @@ operators = [ [l "&&"]
             , [l ","]
             ]
     where
-        f c v = reservedOp c >> return v
-        inf o = AST.Infix o `on` untyped
-        neg = Prefix (f "-" (inf "-" (Const $ I 0)))
-        l o = Infix (f o (inf $ Name o)) AssocLeft
-        r o = Infix (f o (inf $ Name o)) AssocRight
-        anythingelse = Infix (inf <$> otherop) AssocRight
+        f (Name c) v = reservedOp c >> return v
+        neg = Prefix (f "-" (Negate . untyped))
+        inf = Infix . (h <$>)
+            where h o = AST.Infix o `on` untyped
+        l o = inf (f o o) AssocLeft
+        r o = inf (f o o) AssocRight
+        anythingelse = inf otherop AssocRight
         otherop = try $ do
             x <- operator
             if x `elem` ["$", "&&", "||", "==", "*", "/", "+", "-", "$", ","]
