@@ -90,7 +90,7 @@ instance Show TypedExpr where
         Fun (Scope n e) -> printf "(\\%s -> %s)" (show n) (show e)
         Fix (Scope n e) -> printf "fix(\\%s -> %s)" (show n) (show e)
         Let v (Scope n e) -> let (params, v') = unfoldFun v in
-            let paramStr = concatMap ((:) ' ' . show) params in
+            let paramStr = concatMap ((' ':) . show) params in
             printf "/// %s :: %s\nlet %s%s = %s in\n%s" (showIdent n) (show $ label v) (showIdent n) paramStr (show $ untype v') (show e)
         Ap (expr -> Ap (expr -> Free o) x) y | isOperator o -> printf "(%s %s %s)" (show x) (show o) (show y)
         Ap f x@(expr -> Ap _ _) -> printf "%s (%s)" (show f) (show x)
