@@ -31,8 +31,10 @@ data AbstractExpr v a =
     | Fix (Scope a)
     | Let a (Scope a)
     | Ap a a
+    deriving (Functor)
 
 data Scope e = Scope Name e
+    deriving (Functor)
 
 pattern SFun e <- Fun (Scope _ e)
 pattern SFix e <- Fix (Scope _ e)
@@ -89,7 +91,7 @@ instance Show TypedExpr where
         Fix (Scope n e) -> printf "fix(\\%s -> %s)" (show n) (show e)
         Let v (Scope n e) -> let (params, v') = unfoldFun v in
             let paramStr = concatMap ((:) ' ' . show) params in
-            printf "let %s%s = %s :: %s in\n%s" (showIdent n) paramStr (show v') (show $ label v) (show e)
+            printf "/// %s :: %s\nlet %s%s = %s in\n%s" (showIdent n) (show $ label v) (showIdent n) paramStr (show $ untype v') (show e)
         Ap (expr -> Ap (expr -> Free o) x) y | isOperator o -> printf "(%s %s %s)" (show x) (show o) (show y)
         Ap f x@(expr -> Ap _ _) -> printf "%s (%s)" (show f) (show x)
         Ap f x -> printf "%s %s" (show f) (show x)
@@ -100,6 +102,8 @@ instance Show TypedExpr where
                 let (l, e') = unfoldFun e in
                 (n:l, e')
             unfoldFun x = ([], x)
+            untype :: TypedExpr -> Expr
+            untype (LFixP _ e) = LFixP Nothing $ fmap untype e
 
 
 unDebruijn :: LabelledExp l Id -> LabelledExp l Id
