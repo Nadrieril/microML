@@ -6,8 +6,6 @@ module DBT.Eval
     , eval
     ) where
 
-import Data.List (elemIndex)
-import Data.Maybe (fromJust)
 import qualified Data.Map as M
 import Text.Printf (printf)
 import Data.Foldable (foldrM)
@@ -18,7 +16,8 @@ import Utils (push, local)
 import AST.Parse (isOperator)
 import qualified Common.StdLib as StdLib
 import Common.Expr
-import Common.ADT
+import Common.ADT hiding (Id)
+import qualified Common.Context as C
 import DBT.Expr
 
 
@@ -28,8 +27,8 @@ data Val e =
     Val Value
   | VFun (Env e) e
   | VSysCall (Val e -> Eval e)
-  | VConstructor (ADT Name) Int Int [Val e]
-  | VDeconstructor (ADT Name) Int [Val e]
+  | VConstructor (ADT Id) Int Int [Val e]
+  | VDeconstructor (ADT Id) Int [Val e]
 
 instance Show e => Show (Val e) where
     show (Val x) = printf "Val %s" (show x)
@@ -41,22 +40,21 @@ instance Show e => Show (Val e) where
             l -> printf "%s%s" (show name) (show l)
     show (VDeconstructor adt _ _) = printf "%s.." (show $ deconstructorName adt)
 
+
+getFree :: C.Context -> Name -> Val Expr
+getFree ctx x | Just (cv, _) <- x `M.lookup` ctx =
+    case cv of
+        C.Value v -> Val v
+        C.Constructor adt n i -> VConstructor adt n i []
+        C.Deconstructor adt i -> VDeconstructor adt i []
+        C.SysCall f -> VSysCall (\(Val x) -> return $ aux (f x))
+        where
+            aux (StdLib.Val v) = Val v
+            aux (StdLib.Fun f) = VSysCall (\(Val x) -> return $ aux (f x))
+getFree _ x = error $ printf "Unknown free variable: %s" (show x)
+
+
 type Eval e = State (Env e) (Val e)
-
-
-evalSysCall :: Name -> Val Expr
-evalSysCall x | x `M.member` adtMap =
-        let adt = fst $ adtMap M.! x in
-        if x == deconstructorName adt
-            then VDeconstructor adt (length $ adtConstructors adt) []
-            else let n = fromJust (x `elemIndex` map constructorName (adtConstructors adt)) in
-                let Constructor _ p = adtConstructors adt !! n in
-                VConstructor adt n (length p) []
-
-evalSysCall x = aux $ StdLib.sysCallToValue $ StdLib.getSysCall x
-    where
-        aux (StdLib.Val v) = Val v
-        aux (StdLib.Fun f) = VSysCall (\(Val x) -> return $ aux (f x))
 
 evalAp :: Val Expr -> Val Expr -> Eval Expr
 evalAp (VFun stk e) y =
@@ -78,7 +76,7 @@ evalAp v _ = error $ printf "Error: attempting to evaluate %s as a function" (sh
 
 evalE :: Expr -> Eval Expr
 evalE (expr -> Bound i) = (!! i) <$> get
-evalE (expr -> Free g) = return $ evalSysCall g
+evalE (expr -> Free g) = return $ getFree C.globalContext g
 evalE (expr -> Const x) = return $ Val x
 evalE (expr -> If b e1 e2) = do
     vb <- evalE b

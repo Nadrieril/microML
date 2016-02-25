@@ -31,6 +31,7 @@ executable microml
         ScopedTypeVariables
         ViewPatterns
         DeriveGeneric
+        PatternGuards
 
     build-depends:
           base

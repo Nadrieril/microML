@@ -1,10 +1,9 @@
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, RankNTypes, FlexibleContexts, FlexibleInstances, GeneralizedNewtypeDeriving, PatternGuards #-}
+{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, RankNTypes, FlexibleContexts, FlexibleInstances, GeneralizedNewtypeDeriving #-}
 module ASM.Eval where
 
 import Data.Proxy (Proxy(..))
 import Data.Typeable (Typeable)
 import Data.Maybe (fromJust)
-import Data.List (elemIndex)
 import qualified Data.Map as M
 import qualified Debug.Trace as T
 import Control.Monad (replicateM_, void, unless, forM_, when)
@@ -21,9 +20,8 @@ import qualified Common.Expr as Expr (Value(..))
 import qualified Common.StdLib as Std
 import qualified Common.ADT as ADT
 import ASM.Instr hiding (Env)
+import qualified Common.Context as C
 
--- trace :: Show a => a -> b -> b
--- trace = Utils.trace True
 
 type Stack a = [a]
 
@@ -56,8 +54,8 @@ data Value =
       Value Expr.Value
     | Closure (Code, Env)
     | RecClosure (Code, Env)
-    | Constructor (ADT.ADT Name) Int Int [Value]
-    | Deconstructor (ADT.ADT Name) Int [Value]
+    | Constructor (ADT.ADT Id) Int Int [Value]
+    | Deconstructor (ADT.ADT Id) Int [Value]
     | PartialSysCall (Expr.Value -> Std.StdLibValue)
 
 instance Show Value where
@@ -72,6 +70,17 @@ instance Show Value where
             l -> printf "%s%s" (show name) (show l)
     show (Deconstructor adt _ _) = printf "%s.." (show $ ADT.deconstructorName adt)
     show (PartialSysCall _) = printf "PartialSysCall"
+
+
+getSysCall :: C.Context -> Name -> Value
+getSysCall ctx x | Just (cv, _) <- x `M.lookup` ctx =
+    case cv of
+        C.Value v -> Value v
+        C.Constructor adt n i -> Constructor adt n i []
+        C.Deconstructor adt i -> Deconstructor adt i []
+        C.SysCall sc -> PartialSysCall sc
+getSysCall _ x = error $ printf "Unknown syscall: %s" (show x)
+
 
 
 newtype Code = Code (Stack Instr)
@@ -94,20 +103,6 @@ callstack :: Proxy CallStack
 callstack = Proxy
 
 
-evalSysCall :: Name -> ASMEval r Value
-evalSysCall x | Just (adt, _) <- x `M.lookup` ADT.adtMap =
-        let cstrs = ADT.adtConstructors adt in
-        return $ if x == ADT.deconstructorName adt
-            then Deconstructor adt (length cstrs) []
-            else let n = fromJust (x `elemIndex` map ADT.constructorName cstrs) in
-                let ADT.Constructor _ p = cstrs !! n in
-                Constructor adt n (length p) []
-
-evalSysCall x = return $ case Std.sysCallToValue (Std.getSysCall x) of
-        Std.Val v -> Value v
-        Std.Fun f -> PartialSysCall f
-
-
 type ASMEval r e =
     ( Member (Reader Bool) r
     , Member (State Code) r
@@ -115,7 +110,6 @@ type ASMEval r e =
     , Member (State ValStack) r
     , Member (State CallStack) r
     ) => Eff r e
-
 
 
 evalAp :: Value -> ASMEval r ()
@@ -188,7 +182,7 @@ evalInstr c = case c of
 
     Branch i -> replicateM_ i (pop code)
 
-    SysCall sc -> evalSysCall sc >>= push valstack
+    SysCall sc -> push valstack (getSysCall C.globalContext sc)
 
     Push v -> push valstack (Value v)
 

@@ -17,14 +17,18 @@ import Utils (Stack)
 import qualified Utils (trace)
 import qualified Utils.UnionFind as UF
 import qualified DBT.Expr as DBT
-import qualified Common.StdLib as StdLib
 import Common.Expr
-import Common.ADT
 import Common.Type
+import qualified Common.Context as C
 import DBT.Expr
 
 trace :: Show a => a -> b -> b
 trace = Utils.trace False
+
+
+getFree :: C.Context -> Name -> Type
+getFree ctx x | Just (_, t) <- x `M.lookup` ctx = t
+getFree _ x = error $ printf "Unknown free variable: %s" (show x)
 
 
 data UnificationError = UnificationError TypedExpr MonoType MonoType
@@ -150,10 +154,7 @@ inferTypeE (LFixP t e) =
                 return $ LFixP s (Bound x)
 
             Free x -> do
-                let t = if x `M.member` adtFunMap
-                        then adtFunMap M.! x
-                        else StdLib.sysCallToType $ StdLib.getSysCall x
-                s <- inst t
+                s <- inst $ getFree C.globalContext x
                 return $ LFixP s (Free x)
 
             If b e1 e2 -> do

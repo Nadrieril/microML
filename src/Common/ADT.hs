@@ -1,19 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Common.ADT where
 
-
 import Data.Maybe (fromMaybe)
 import qualified Data.Map as M
-import Control.Monad (join)
-import Control.Arrow((&&&), second)
 -- import qualified Debug.Trace as T
 
 import Common.Expr
 import Common.Type
 
+type Id = Int
+
 data ADT a = ADT {
       adtName :: Name
-    , adtParams :: [Name]
+    , adtParams :: [a]
     , adtConstructors :: [Constructor a]
     , deconstructor :: Maybe Name
     }
@@ -27,32 +26,41 @@ data Constructor a = Constructor {
 deconstructorName :: ADT a -> Name
 deconstructorName ADT{..} = fromMaybe (Name ("un" ++ show adtName)) deconstructor
 
-adtTypes :: ADT Name -> [(Name, Type)]
-adtTypes adt@(ADT adtName params constructors _) =
-    -- Use negative variable ids to avoid collision on intanciation
-    let paramIds = take (length params) $ map negate [2..] in
+
+bindTypeVars :: ADT Name -> ADT Id
+bindTypeVars (ADT name params constructors deconstructor) =
+    let paramIds = take (length params) [0..] in
     let paramMap = M.fromList $ zip params paramIds in
-    let boundConstructors = map (\(Constructor n p) -> Constructor n (map (fmap (paramMap M.!)) p)) constructors in
+    let bindConstructor (Constructor n p) = Constructor n (map (fmap (paramMap M.!)) p) in
+    ADT name paramIds (map bindConstructor constructors) deconstructor
+
+
+type FuncInfo = (Name, Type, Int)
+
+deconstructorInfo :: ADT Id -> FuncInfo
+deconstructorInfo adt@(ADT name params constructors _) =
+    -- Use negative variable ids to avoid collision on intanciation
+    let retType = TVar (-1) in
+    let tvarId = (2 -) in
+    let paramIds = map tvarId params in
+    let boundConstructors = map (\(Constructor n p) -> Constructor n (map (fmap tvarId) p)) constructors in
+    let adttype = TProduct name (map TVar paramIds) in
     let makeF t (Constructor _ p) = foldr (:->) t p in
+    let deconstructorType = bind $ foldr ((:->) . makeF retType) (adttype :-> retType) boundConstructors in
+    (deconstructorName adt, deconstructorType, length constructors)
 
-    let adttype = TProduct adtName (map TVar paramIds) in
-    let deconstructor = foldr ((:->) . makeF (TVar (-1))) (adttype :-> TVar (-1)) boundConstructors in
-    let name (Constructor n _) = n in
-    map (second bind) $
-        (deconstructorName adt, deconstructor) : map (name &&& makeF adttype) boundConstructors
+constructorsInfo :: ADT Id -> [FuncInfo]
+constructorsInfo (ADT name params constructors _) =
+    let tvarId = (2 -) in
+    let paramIds = map tvarId params in
+    let adttype = TProduct name (map TVar paramIds) in
+    let makeF t = foldr (:->) t . constructorParams in
+    let boundConstructors = map (\(Constructor n p) -> Constructor n (map (fmap tvarId) p)) constructors in
+    map (\c -> (constructorName c, bind $ makeF adttype c, length $ constructorParams c)) boundConstructors
 
 
-adts :: [ADT Name]
-adts = [pair, option, list]
-
-adtMap :: M.Map Name (ADT Name, Type)
-adtMap = M.fromList $ join $ fmap (\adt -> second (\t -> (adt, t)) <$> adtTypes adt) adts
-
-adtFunMap :: M.Map Name Type
-adtFunMap = fmap snd adtMap
-
-constructorsMap :: ADT a -> M.Map Name (Constructor a)
-constructorsMap ADT{..} = M.fromList $ fmap (constructorName &&& id) adtConstructors
+adts :: [ADT Id]
+adts = map bindTypeVars [pair, option, list]
 
 
 pair :: ADT Name

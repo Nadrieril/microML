@@ -1,6 +1,7 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, PatternSynonyms #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, PatternSynonyms, OverloadedStrings #-}
 module Common.StdLib
     ( StdLibValue(..)
+    , sysCalls
     , getSysCall
     , sysCallToValue
     , sysCallToType
@@ -12,6 +13,9 @@ import Data.Proxy (Proxy(..))
 import Common.Expr
 import Common.Type
 
+
+sysCalls :: [Name]
+sysCalls = ["+", "-", "*", "/", "and", "or", "=="]
 
 getSysCall :: Name -> SysCall
 getSysCall (Name x) = case x of
