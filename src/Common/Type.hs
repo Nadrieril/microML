@@ -118,11 +118,10 @@ bind :: MonoType -> Type
 bind t = IS.foldr TBound (TMono t) (free $ TMono t)
 
 mergeTypes :: MonoType -> MonoType -> MonoType
+mergeTypes t1 t2 | t1 == t2 = t1
 mergeTypes (TVar i1) (TVar i2) = TVar (min i1 i2)
 mergeTypes (TVar _) t2 = t2
 mergeTypes t1 (TVar _) = t1
 mergeTypes (TProduct n1 tl1) (TProduct n2 tl2)
-    | n1 == n2 = TProduct n1 $ zipWith mergeTypes tl1 tl2
-    | otherwise = error $ printf "Cannot merge different types (%s and %s)" (show n1) (show n2)
-mergeTypes t1 t2 | t1 == t2 = t1
-                 | otherwise = error $ printf "Cannot merge different types (%s and %s)" (show t1) (show t2)
+        | n1 == n2 = TProduct n1 $ zipWith mergeTypes tl1 tl2
+mergeTypes t1 t2 = error $ printf "Cannot merge different types (%s and %s)" (show t1) (show t2)

@@ -147,10 +147,10 @@ inferTypeE (LFixP t e) =
     case t of
         Nothing -> infE
         Just t -> do
-            e'' <- infE
+            e@(LFixP t' e') <- infE
             t <- projectType t
-            unify e'' t (label e'')
-            return e''
+            unify e t t'
+            return $ LFixP t e'
 
     where infE = case e of
             Const c ->
