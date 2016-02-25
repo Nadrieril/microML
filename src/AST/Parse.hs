@@ -23,6 +23,7 @@ languageDef =
         , Token.reservedNames   = [ "if" , "then" , "else"
                                   , "let", "rec", "in", "fun"
                                   , "true" , "false"
+                                  , "Int", "Bool"
                                   ]
         , Token.reservedOpNames = ["::", "->", "=" ]
         , Token.opStart = Token.opLetter languageDef
@@ -41,28 +42,25 @@ whiteSpace = Token.whiteSpace lexer -- parses whitespace
 
 -----------------------
 isOperator :: Name -> Bool
-isOperator (Name n) = isRight . parse operator ""$ n
+isOperator (Name n) = isRight $ parse operator "" n
 
 -----------------------
 untyped :: UntypedExpr a -> TypedExpr a
 untyped = LFixP Nothing
 
-typeIdent :: Parser TConst
-typeIdent = do
-    n <- do
+typeIdent :: Parser Name
+typeIdent = Name <$> do
         c <- upper
         cs <- many (alphaNum <|> oneOf "_'")
         whiteSpace
         return (c:cs)
-    case n of
-        "Int" -> return TInt
-        "Bool" -> return TBool
-        _ -> error "unknown type"
     <?> "type identifier"
 
 typeAtom :: Parser (Mono Name)
 typeAtom = parens typ
-       <|> TConst <$> typeIdent
+       <|> TConst <$> (reserved "Int" *> return TInt)
+       <|> TConst <$> (reserved "Bool" *> return TBool)
+       <|> TProduct <$> typeIdent <*> many typeAtom
        <|> TVar <$> ident
     <?> "type atom"
 
