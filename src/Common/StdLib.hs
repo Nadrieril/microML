@@ -15,7 +15,7 @@ import Common.Type
 
 
 sysCalls :: [Name]
-sysCalls = ["+", "-", "*", "/", "and", "or", "=="]
+sysCalls = ["+", "-", "*", "/", "&&", "||", "=="]
 
 getSysCall :: Name -> SysCall
 getSysCall (Name x) = case x of
@@ -23,8 +23,8 @@ getSysCall (Name x) = case x of
     "-" -> Minus
     "*" -> Mult
     "/" -> Div
-    "and" -> And
-    "or" -> Or
+    "&&" -> And
+    "||" -> Or
     "==" -> Eq
     x -> error $ "unknown syscall : " ++ x
 

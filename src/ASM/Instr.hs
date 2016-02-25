@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, FlexibleContexts #-}
+{-# LANGUAGE RankNTypes, FlexibleContexts, OverloadedStrings #-}
 -- ASM = Abstract Stack Machine
 module ASM.Instr where
 
@@ -48,6 +48,22 @@ compileE (expr -> e) = case e of
         tellall c1
         tell $ Branch (length c2)
         tellall c2
+
+    DBT.Ap (expr -> DBT.Ap (expr -> DBT.Free "&&") x) y -> do
+        compileE x
+        let cy = compile y
+        tell $ Branchneg (length cy + 1)
+        tellall cy
+        tell $ Branch 1
+        tell $ Push $ B False
+
+    DBT.Ap (expr -> DBT.Ap (expr -> DBT.Free "||") x) y -> do
+        compileE x
+        let cy = compile y
+        tell $ Branchneg 2
+        tell $ Push $ B True
+        tell $ Branch (length cy)
+        tellall cy
 
     DBT.Ap f x -> do
         compileE x
