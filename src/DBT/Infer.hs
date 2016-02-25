@@ -6,9 +6,11 @@ module DBT.Infer
 
 import Data.Typeable (Typeable)
 import Text.Printf (printf)
+import Data.Maybe
 import qualified Data.Map as M
 import qualified Data.IntSet as IS
-import Control.Monad (zipWithM_)
+import Control.Monad (zipWithM_, forM)
+import Control.Arrow (first)
 import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, get, put, modify, evalState)
 import Control.Eff.Writer.Strict (Writer, tell, runWriter)
@@ -86,10 +88,16 @@ getType :: Id -> Env r Type
 getType i = (!! i) <$> get
 
 inst :: Type -> Env r MonoType
-inst (TMono t) = return t
-inst (TBound i t) = do
-    i' <- freshV
-    inst $ fmap (\j -> if i==j then i' else j) t
+inst t = do
+    let (l, t') = unbind t
+    freshs <- forM l (const freshV)
+    let tmap = M.fromList $ zip l freshs
+    return $ fmap (\i -> fromMaybe i (M.lookup i tmap)) t'
+    where
+        unbind :: Type -> ([TId], MonoType)
+        unbind (TMono t) = ([], t)
+        unbind (TBound i t) = first (i:) $ unbind t
+
 
 unify :: TypedExpr -> MonoType -> MonoType -> Env r ()
 unify e t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do

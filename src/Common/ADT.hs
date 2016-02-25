@@ -39,24 +39,17 @@ type FuncInfo = (Name, Type, Int)
 
 deconstructorInfo :: ADT Id -> FuncInfo
 deconstructorInfo adt@(ADT name params constructors _) =
-    -- Use negative variable ids to avoid collision on intanciation
     let retType = TVar (-1) in
-    let tvarId = (2 -) in
-    let paramIds = map tvarId params in
-    let boundConstructors = map (\(Constructor n p) -> Constructor n (map (fmap tvarId) p)) constructors in
-    let adttype = TProduct name (map TVar paramIds) in
+    let adttype = TProduct name (map TVar params) in
     let makeF t (Constructor _ p) = foldr (:->) t p in
-    let deconstructorType = bind $ foldr ((:->) . makeF retType) (adttype :-> retType) boundConstructors in
+    let deconstructorType = bind $ foldr ((:->) . makeF retType) (adttype :-> retType) constructors in
     (deconstructorName adt, deconstructorType, length constructors)
 
 constructorsInfo :: ADT Id -> [FuncInfo]
 constructorsInfo (ADT name params constructors _) =
-    let tvarId = (2 -) in
-    let paramIds = map tvarId params in
-    let adttype = TProduct name (map TVar paramIds) in
+    let adttype = TProduct name (map TVar params) in
     let makeF t = foldr (:->) t . constructorParams in
-    let boundConstructors = map (\(Constructor n p) -> Constructor n (map (fmap tvarId) p)) constructors in
-    map (\c -> (constructorName c, bind $ makeF adttype c, length $ constructorParams c)) boundConstructors
+    map (\c -> (constructorName c, bind $ makeF adttype c, length $ constructorParams c)) constructors
 
 
 adts :: [ADT Id]

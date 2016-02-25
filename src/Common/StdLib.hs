@@ -77,7 +77,7 @@ sysCallToValType sc = case sc of
         And -> wrap (||)
         Or -> wrap (&&)
         Eq -> ( toStdValue ((==) :: Value -> Value -> Bool)
-              , bind $ TVar (-1) :-> TVar (-1) :-> TConst TBool)
+              , bind $ TVar 0 :-> TVar 0 :-> TConst TBool)
     where
         castProxy :: a -> Proxy a
         castProxy = const Proxy
