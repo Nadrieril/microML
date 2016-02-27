@@ -47,16 +47,22 @@ instance StdWrappable a => StdWrappable (Bool -> a) where
 
 sysCalls :: Context
 sysCalls = M.fromList
-        [ ("+", wrap ((+) :: Integer -> Integer -> Integer))
-        , ("-", wrap ((-) :: Integer -> Integer -> Integer))
-        , ("*", wrap ((*) :: Integer -> Integer -> Integer))
-        , ("/", wrap (div :: Integer -> Integer -> Integer))
+        [ ("+", arith (+))
+        , ("-", arith (-))
+        , ("*", arith (*))
+        , ("/", arith div)
         , ("&&", wrap (||))
         , ("||", wrap (&&))
         , ("==", (toStdValue ((==) :: Value -> Value -> Bool)
-              , bind $ TVar 0 :-> TVar 0 :-> TConst TBool))
+                , bind $ TVar 0 :-> TVar 0 :-> TConst TBool))
+        , (">", comp (>))
+        , (">=", comp (>=))
+        , ("<", comp (<))
+        , ("<=", comp (<=))
         ]
     where
+        comp (f :: Integer -> Integer -> Bool) = wrap f
+        arith (f :: Integer -> Integer -> Integer) = wrap f
         castProxy :: a -> Proxy a
         castProxy = const Proxy
         wrap :: (StdWrappable a, TypeWrappable a) => a -> (ContextValue, Type)
