@@ -30,7 +30,7 @@ tellall :: [Instr] -> Env r ()
 tellall = mapM_ tell
 
 
-compileE :: DBT.Expr -> Env r ()
+compileE :: DBT.TypedExpr -> Env r ()
 compileE (expr -> e) = case e of
     DBT.Const c -> tell $ Push c
 
@@ -81,7 +81,7 @@ compileE (expr -> e) = case e of
 
     _ -> error "impossible"
 
-compile :: DBT.Expr -> [Instr]
+compile :: DBT.TypedExpr -> [Instr]
 compile e = fst $ run $
     runWriter (\i -> ([i] ++)) [] $
     compileE e

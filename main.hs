@@ -7,8 +7,7 @@ import Options
 
 import AST.Parse (parseML)
 import AFT.Expr (fromAST)
-import DBT.Expr (afttodbt)
-import qualified DBT.Expr (Expr)
+import DBT.Expr (afttodbt, TypedExpr)
 import qualified DBT.Eval (eval)
 import DBT.Infer (inferType)
 
@@ -19,7 +18,7 @@ import qualified ASM.Eval as ASM
 getFileContents :: FilePath -> IO String
 getFileContents file = if file == "-" then getContents else readFile file
 
-processFile :: Bool -> FilePath -> IO DBT.Expr.Expr
+processFile :: Bool -> FilePath -> IO TypedExpr
 processFile showTyped file = do
     code <- getFileContents file
     ast <- evalerr "Parse error" $ either (error.show) id $ parseML code
@@ -34,7 +33,7 @@ processFile showTyped file = do
     unless (null errors) $
         error $ unlines $ "Errors encountered while inferring types:" : map (("  "++) . show) errors
 
-    return dbt
+    return typed
 
     where evalerr n x =
                 catch (evaluate x)
@@ -69,9 +68,9 @@ instance Options RunOptions where
 compileCmd :: MainOptions -> CompileOpts -> [String] -> IO ()
 compileCmd _ (CompileOpts optShow) args = do
     let [file] = args
-    dbt <- processFile optShow file
+    typed <- processFile optShow file
 
-    let compiled = ASM.compile dbt
+    let compiled = ASM.compile typed
     print compiled
 
 
@@ -84,10 +83,10 @@ typeCmd _ _ args =  do
 evalCmd :: MainOptions -> EvalOptions -> [String] -> IO ()
 evalCmd _ (EvalOptions optShow) args =  do
     let [file] = args
-    dbt <- processFile optShow file
+    typed <- processFile optShow file
 
     when optShow $ putStr "-> "
-    print $ DBT.Eval.eval dbt
+    print $ DBT.Eval.eval typed
 
 
 runCmd :: MainOptions -> RunOptions -> [String] -> IO ()

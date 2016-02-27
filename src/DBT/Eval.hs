@@ -41,7 +41,7 @@ instance Show e => Show (Val e) where
     show (VDeconstructor adt _ _) = printf "%s.." (show $ deconstructorName adt)
 
 
-getFree :: C.Context -> Name -> Val Expr
+getFree :: C.Context -> Name -> Val TypedExpr
 getFree ctx x | Just (cv, _) <- x `M.lookup` ctx =
     case cv of
         C.Value v -> Val v
@@ -56,7 +56,7 @@ getFree _ x = error $ printf "Unknown free variable: %s" (show x)
 
 type Eval e = State (Env e) (Val e)
 
-evalAp :: Val Expr -> Val Expr -> Eval Expr
+evalAp :: Val TypedExpr -> Val TypedExpr -> Eval TypedExpr
 evalAp (VFun stk e) y =
     local $ do
         put stk
@@ -74,7 +74,7 @@ evalAp (VDeconstructor _ 0 _) _ = error "Attempting to deconstruct non-product v
 evalAp (VDeconstructor adt i p) x = return $ VDeconstructor adt (i-1) (x:p)
 evalAp v _ = error $ printf "Error: attempting to evaluate %s as a function" (show v)
 
-evalE :: Expr -> Eval Expr
+evalE :: TypedExpr -> Eval TypedExpr
 evalE (expr -> Bound i) = (!! i) <$> get
 evalE (expr -> Free g) = return $ getFree C.globalContext g
 evalE (expr -> Const x) = return $ Val x
@@ -104,5 +104,5 @@ evalE (expr -> Ap f x) = do
     evalAp vf vx
 evalE _ = error "impossible"
 
-eval :: Expr -> Val Expr
+eval :: TypedExpr -> Val TypedExpr
 eval e = evalState (evalE e) []
