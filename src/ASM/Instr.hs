@@ -2,11 +2,15 @@
 -- ASM = Abstract Stack Machine
 module ASM.Instr where
 
+import qualified Data.Map as M
 import Control.Eff (Member, Eff, run)
 import Control.Eff.Writer.Strict (Writer, tell, runWriter)
+import Text.Printf (printf)
 
 import Common.Expr (Id, Name(..), Value(..), LFixP(..))
 import qualified DBT.Expr as DBT
+import qualified Common.ADT as ADT
+import qualified Common.Context as C
 
 
 data Instr =
@@ -20,6 +24,8 @@ data Instr =
     | Branchneg Id
     | Branch Id
     | SysCall Name
+    | Constructor Name Int Int
+    | Deconstructor Name Int
     | Push Value
     deriving (Show, Read)
 
@@ -30,13 +36,25 @@ tellall :: [Instr] -> Env r ()
 tellall = mapM_ tell
 
 
+getSysCall :: C.Context -> Name -> Instr
+getSysCall ctx x | Just (cv, _) <- x `M.lookup` ctx =
+    case cv of
+        C.Value v -> Push v
+        C.Constructor adt n i -> let name = ADT.constructorName (ADT.adtConstructors adt !! n) in
+                Constructor name n i
+        C.Deconstructor adt i -> Deconstructor (ADT.adtName adt) i
+        -- C.SysCall _ -> error $ printf "Cannot compile syscall from local context: %s" (show x)
+        C.SysCall _ -> SysCall x --TODO: remove
+getSysCall _ x = SysCall x
+
+
 compileE :: DBT.TypedExpr -> Env r ()
 compileE (expr -> e) = case e of
     DBT.Const c -> tell $ Push c
 
     DBT.Bound x -> tell $ Access x
 
-    DBT.Free x -> tell $ SysCall x
+    DBT.Free x -> tell $ getSysCall C.globalContext x
 
     DBT.If b e1 e2 -> do
         let c1 = compile e1
@@ -80,6 +98,7 @@ compileE (expr -> e) = case e of
         tell Endlet
 
     _ -> error "impossible"
+
 
 compile :: DBT.TypedExpr -> [Instr]
 compile e = fst $ run $
