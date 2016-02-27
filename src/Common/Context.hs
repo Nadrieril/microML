@@ -5,12 +5,11 @@ import Data.Monoid
 import qualified Data.Map as M
 import Control.Arrow
 
-import Common.Expr (Name, Value)
+import Common.Expr (Id, Name, Value)
 import qualified Common.StdLib as Std
-import Common.ADT hiding (Id, Constructor)
+import Common.ADT hiding (Constructor)
 import Common.Type
 
-type Id = Int
 
 data ContextValue =
       Value Value

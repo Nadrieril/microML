@@ -5,11 +5,9 @@ module ASM.Instr where
 import Control.Eff (Member, Eff, run)
 import Control.Eff.Writer.Strict (Writer, tell, runWriter)
 
-import Common.Expr (Name(..), Value(..), LFixP(..))
+import Common.Expr (Id, Name(..), Value(..), LFixP(..))
 import qualified DBT.Expr as DBT
 
-
-type Id = Int
 
 data Instr =
       Access Id

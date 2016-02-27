@@ -10,7 +10,6 @@ import Text.Printf (printf)
 import Common.Expr
 import Common.Type
 
-type Id = Int
 
 data ADT a = ADT {
       adtName :: Name

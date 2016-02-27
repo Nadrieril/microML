@@ -6,6 +6,8 @@ import Data.String (IsString(..))
 import Control.Arrow (first)
 
 
+type Id = Int
+
 newtype Name = Name String
     deriving (Eq, Ord, Hashable)
 

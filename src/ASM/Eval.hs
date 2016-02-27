@@ -15,7 +15,7 @@ import Text.Printf (printf)
 
 -- import qualified Utils (trace)
 import AST.Parse (isOperator)
-import Common.Expr (Name(..))
+import Common.Expr (Id, Name(..))
 import qualified Common.Expr as Expr (Value(..))
 import qualified Common.StdLib as Std
 import qualified Common.ADT as ADT

@@ -42,8 +42,6 @@ pattern SLet v e <- Let v (Scope _ e)
 
 type LabelledExp l v = LFixP l (AbstractExpr v)
 
-type Id = Int
-
 type Expr = LabelledExp (Maybe (Mono Name)) Id
 type TypedExpr = LabelledExp MonoType Id
 
