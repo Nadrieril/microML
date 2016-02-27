@@ -12,6 +12,7 @@ import qualified Text.ParserCombinators.Parsec.Token as Token
 import Common.Expr hiding (expr)
 import AST.Expr hiding (Infix)
 import qualified AST.Expr as AST
+import Common.ADT
 import Common.Type
 
 -----------------------------------------------------------------------------
@@ -22,9 +23,10 @@ languageDef =
         , Token.commentLine     = "//"
         , Token.reservedNames   = [ "if" , "then" , "else"
                                   , "let", "rec", "in", "fun"
-                                  , "true" , "false"
+                                  , "data", "true" , "false"
+                                  , "Int", "Bool"
                                   ]
-        , Token.reservedOpNames = ["::", "->", "=" ]
+        , Token.reservedOpNames = ["::", "->", "=", "|" ]
         , Token.opStart = Token.opLetter languageDef
         , Token.opLetter = oneOf ":!#$%&*+./<=>?@\\^|-~,"
     }
@@ -41,28 +43,25 @@ whiteSpace = Token.whiteSpace lexer -- parses whitespace
 
 -----------------------
 isOperator :: Name -> Bool
-isOperator (Name n) = isRight . parse operator ""$ n
+isOperator (Name n) = isRight $ parse operator "" n
 
 -----------------------
 untyped :: UntypedExpr a -> TypedExpr a
 untyped = LFixP Nothing
 
-typeIdent :: Parser TConst
-typeIdent = do
-    n <- do
+typeIdent :: Parser Name
+typeIdent = Name <$> do
         c <- upper
         cs <- many (alphaNum <|> oneOf "_'")
         whiteSpace
         return (c:cs)
-    case n of
-        "Int" -> return TInt
-        "Bool" -> return TBool
-        _ -> error "unknown type"
     <?> "type identifier"
 
 typeAtom :: Parser (Mono Name)
 typeAtom = parens typ
-       <|> TConst <$> typeIdent
+       <|> TConst <$> (reserved "Int" *> return TInt)
+       <|> TConst <$> (reserved "Bool" *> return TBool)
+       <|> TProduct <$> typeIdent <*> many typeAtom
        <|> TVar <$> ident
     <?> "type atom"
 
@@ -78,6 +77,21 @@ typ = buildExpressionParser typeOperators typeAtom
 
 typed :: Parser (UntypedExpr Name) -> Parser (TypedExpr Name)
 typed p = flip LFixP <$> p <*> optionMaybe (reservedOp "::" >> typ)
+
+-----------------------
+constructor :: Parser (Constructor Name)
+constructor = Constructor <$> typeIdent <*> many typeAtom
+
+adt :: Parser (ADT Name)
+adt = do
+    reserved "data"
+    name <- typeIdent
+    params <- many ident
+    reservedOp "="
+    constructors <- sepBy constructor (reservedOp "|")
+    reserved "in"
+    return $ ADT name params constructors Nothing
+    <?> "ADT"
 
 -----------------------
 operators :: forall st. [[Operator Char st (UntypedExpr Name)]]
@@ -161,6 +175,9 @@ funAp = foldl1 (Ap `on` untyped) <$> many1 atom <?> "function application"
 expr :: Parser Expr
 expr = typed (buildExpressionParser operators funAp <?> "expression")
 
+program :: Parser Program
+program = (,) <$> many adt <*> expr
 
-parseML :: String -> Either ParseError Expr
-parseML = parse (whiteSpace >> expr) ""
+
+parseML :: String -> Either ParseError Program
+parseML = parse (whiteSpace >> program) ""

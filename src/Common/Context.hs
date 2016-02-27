@@ -1,16 +1,20 @@
 {-# LANGUAGE ParallelListComp #-}
-module Common.Context where
+module Common.Context (
+      Context
+    , ContextValue(..)
+    , contextFromADTs
+    , globalContext
+    ) where
 
 import Data.Monoid
 import qualified Data.Map as M
 import Control.Arrow
 
-import Common.Expr (Name, Value)
+import Common.Expr (Id, Name, Value)
 import qualified Common.StdLib as Std
-import Common.ADT hiding (Id, Constructor)
+import Common.ADT hiding (Constructor)
 import Common.Type
 
-type Id = Int
 
 data ContextValue =
       Value Value
@@ -30,6 +34,9 @@ adtContext adt =
                     | i <- [0..]] in
     M.fromList $ dec : decs
 
+contextFromADTs :: [ADT Name] -> Context
+contextFromADTs adts = mconcat (map (adtContext . bindTypeVars) adts)
+
 stdContext :: Context
 stdContext =
     let f (Std.Val v) = Value v
@@ -39,4 +46,4 @@ stdContext =
     M.fromList $ map (id &&& (f . sctv &&& sctt)) Std.sysCalls
 
 globalContext :: Context
-globalContext = stdContext <> mconcat (map adtContext adts)
+globalContext = stdContext <> contextFromADTs Std.adts

@@ -5,15 +5,17 @@ module DBT.Infer
     ) where
 
 import Data.Typeable (Typeable)
-import Text.Printf (printf)
 import Data.Maybe
+import Data.Monoid ((<>))
 import qualified Data.Map as M
 import qualified Data.IntSet as IS
 import Control.Monad (zipWithM_, forM)
 import Control.Arrow (first)
 import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, get, put, modify, evalState)
+import Control.Eff.Reader.Strict (Reader, ask, runReader)
 import Control.Eff.Writer.Strict (Writer, tell, runWriter)
+import Text.Printf (printf)
 
 import Utils (Stack)
 import qualified Utils (trace)
@@ -40,6 +42,7 @@ instance Show UnificationError where
 
 
 type Env r e = (
+    Member (Reader C.Context) r,
     Member (State Int) r,
     Member (State (Stack Type)) r,
     Member (State (UF.UnionFind MonoType)) r,
@@ -162,7 +165,8 @@ inferTypeE (LFixP t e) =
                 return $ LFixP s (Bound x)
 
             Free x -> do
-                s <- inst $ getFree C.globalContext x
+                ctx <- ask
+                s <- inst $ getFree ctx x
                 return $ LFixP s (Free x)
 
             If b e1 e2 -> do
@@ -205,8 +209,9 @@ inferTypeE (LFixP t e) =
           inferScope t (Scope n e) = Scope n <$> localPush t (inferTypeE e)
 
 
-inferType :: DBT.Expr -> ([UnificationError], TypedExpr)
-inferType e = run $
+inferType :: C.Context -> DBT.Expr -> ([UnificationError], TypedExpr)
+inferType ctx e = run $
+    flip runReader (C.globalContext <> ctx) $
     evalState (0 :: Int) $
     evalState ([] :: Stack Type) $
     evalState (UF.empty :: UF.UnionFind MonoType) $

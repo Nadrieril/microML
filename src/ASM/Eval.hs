@@ -19,7 +19,8 @@ import Common.Expr (Name(..))
 import qualified Common.Expr as Expr (Value(..))
 import qualified Common.StdLib as Std
 import qualified Common.ADT as ADT
-import ASM.Instr hiding (Env)
+import ASM.Instr (Instr)
+import qualified ASM.Instr as I
 import qualified Common.Context as C
 
 
@@ -54,32 +55,31 @@ data Value =
       Value Expr.Value
     | Closure (Code, Env)
     | RecClosure (Code, Env)
-    | Constructor (ADT.ADT Id) Int Int [Value]
-    | Deconstructor (ADT.ADT Id) Int [Value]
+    | Constructor Name Int Int [Value]
+    | Deconstructor Name Int [Value]
     | PartialSysCall (Expr.Value -> Std.StdLibValue)
 
 instance Show Value where
     show (Value x) = printf "Value %s" (show x)
-    -- show (Closure x) = printf "Closure %s" (show x)
-    -- show (RecClosure x) = printf "RecClosure %s" (show x)
     show (Closure _) = printf "Closure"
     show (RecClosure _) = printf "RecClosure"
-    show (Constructor adt n _ l) = let name = ADT.constructorName (ADT.adtConstructors adt !! n) in
-        case l of
+    show (Constructor name _ _ l) = case l of
             [x, y] | isOperator name -> printf "(%s %s %s)" (show x) (show name) (show y)
             l -> printf "%s%s" (show name) (show l)
-    show (Deconstructor adt _ _) = printf "%s.." (show $ ADT.deconstructorName adt)
+    show (Deconstructor name _ _) = printf "un%s[..]" (show name)
     show (PartialSysCall _) = printf "PartialSysCall"
 
 
-getSysCall :: C.Context -> Name -> Value
-getSysCall ctx x | Just (cv, _) <- x `M.lookup` ctx =
-    case cv of
-        C.Value v -> Value v
-        C.Constructor adt n i -> Constructor adt n i []
-        C.Deconstructor adt i -> Deconstructor adt i []
-        C.SysCall sc -> PartialSysCall sc
-getSysCall _ x = error $ printf "Unknown syscall: %s" (show x)
+getSysCall :: Name -> Value
+getSysCall x
+    | Just (cv, _) <- x `M.lookup` C.globalContext  =
+        case cv of
+            C.Value v -> Value v
+            C.Constructor adt n i -> let name = ADT.constructorName (ADT.adtConstructors adt !! n) in
+                    Constructor name n i []
+            C.Deconstructor adt i -> Deconstructor (ADT.adtName adt) i []
+            C.SysCall sc -> PartialSysCall sc
+    | otherwise = error $ printf "Unknown syscall: %s" (show x)
 
 
 
@@ -92,15 +92,10 @@ newtype ValStack = ValStack (Stack Value)
 newtype CallStack = CallStack (Stack (Code, Env))
     deriving (Show, Stackable (Code, Env))
 
-
-code :: Proxy Code
-code = Proxy
-env :: Proxy Env
-env = Proxy
-valstack :: Proxy ValStack
-valstack = Proxy
-callstack :: Proxy CallStack
-callstack = Proxy
+code = Proxy :: Proxy Code
+env = Proxy :: Proxy Env
+valstack = Proxy :: Proxy ValStack
+callstack = Proxy :: Proxy CallStack
 
 
 type ASMEval r e =
@@ -124,23 +119,21 @@ evalAp = \case
         let e' = inStack (RecClosure (cde, e) :) e
         evalAp $ Closure (cde, e')
 
-    Constructor adt n i l | i /= 0 -> do
+    Constructor name n i l | i /= 0 -> do
         x <- pop valstack
-        push valstack $ Constructor adt n (i-1) (x:l)
+        push valstack $ Constructor name n (i-1) (x:l)
 
-    Deconstructor adt 0 p -> do
-        let n = ADT.adtName adt
+    Deconstructor _ 0 p ->
         pop valstack >>= \case
-            Constructor (ADT.adtName -> n') _ 0 _ | n /= n' -> error $ printf "Attempting to deconstruct %s value as a %s" (show n) (show n')
             Constructor _ n 0 l -> do
                 let f = p !! (length p - 1 - n)
                 forM_ l (push valstack)
                 push valstack f
-                forM_ l (\_ -> push code Apply)
+                forM_ l (\_ -> push code I.Apply)
             v -> error $ printf "Attempting to deconstruct non-product value %s" (show v)
-    Deconstructor adt i p -> do
+    Deconstructor name i p -> do
         x <- pop valstack
-        push valstack $ Deconstructor adt (i-1) (x:p)
+        push valstack $ Deconstructor name (i-1) (x:p)
 
     PartialSysCall f -> do
             Value v <- pop valstack
@@ -153,38 +146,42 @@ evalAp = \case
 
 evalInstr :: Instr -> ASMEval r ()
 evalInstr c = case c of
-    Access i -> do
+    I.Access i -> do
         Env e <- get env
         push valstack (e !! i)
 
-    Apply -> pop valstack >>= evalAp
+    I.Apply -> pop valstack >>= evalAp
 
-    Cur c' -> do
+    I.Cur c' -> do
         e <- get env
         push valstack (Closure (Code c', e))
 
-    Rec c' -> do
+    I.Rec c' -> do
         e <- get env
         push valstack (RecClosure (Code c', e))
 
-    Return -> do
+    I.Return -> do
         (c', e') <- pop callstack
         put code c'
         put env e'
 
-    Let -> pop valstack >>= push env
+    I.Let -> pop valstack >>= push env
 
-    Endlet -> void $ pop env
+    I.Endlet -> void $ pop env
 
-    Branchneg i -> do
+    I.Branchneg i -> do
         Value (Expr.B v) <- pop valstack
         unless v $ replicateM_ i (pop code)
 
-    Branch i -> replicateM_ i (pop code)
+    I.Branch i -> replicateM_ i (pop code)
 
-    SysCall sc -> push valstack (getSysCall C.globalContext sc)
+    I.SysCall sc -> push valstack $ getSysCall sc
 
-    Push v -> push valstack (Value v)
+    I.Constructor name n i -> push valstack $ Constructor name n i []
+
+    I.Deconstructor name i -> push valstack $ Deconstructor name i []
+
+    I.Push v -> push valstack (Value v)
 
 
 evalE :: ASMEval r Value
@@ -202,7 +199,7 @@ evalE = do
             -- Catch missing returns
             if null cs
                 then pop valstack
-                else push code Return >> evalE
+                else push code I.Return >> evalE
 
         Just c -> do
             when debug $ T.traceM ("> " ++ show c ++ "\n")

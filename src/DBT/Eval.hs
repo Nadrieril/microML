@@ -1,4 +1,4 @@
-{-# LANGUAGE RecursiveDo, FlexibleContexts, UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts, UndecidableInstances, RankNTypes #-}
 module DBT.Eval
     ( Env
     , Val(..)
@@ -7,32 +7,36 @@ module DBT.Eval
     ) where
 
 import qualified Data.Map as M
-import Text.Printf (printf)
+import Data.Monoid ((<>))
 import Data.Foldable (foldrM)
-import Control.Monad.State (State, evalState, get, put)
+import Control.Eff (Member, Eff, run)
+import Control.Eff.State.Strict (State, get, put, modify, evalState)
+import Control.Eff.Reader.Strict (Reader, ask, runReader)
+import Text.Printf (printf)
 import qualified Debug.Trace as T
 
-import Utils (push, local)
 import AST.Parse (isOperator)
 import qualified Common.StdLib as StdLib
 import Common.Expr
-import Common.ADT hiding (Id)
+import Common.ADT
 import qualified Common.Context as C
 import DBT.Expr
 
 
-type Env e = [Val e]
+type Env = [Val]
 
-data Val e =
+data Val =
     Val Value
-  | VFun (Env e) e
-  | VSysCall (Val e -> Eval e)
-  | VConstructor (ADT Id) Int Int [Val e]
-  | VDeconstructor (ADT Id) Int [Val e]
+  | VFun Env TypedExpr
+  | VRecFun Env TypedExpr
+  | VSysCall (Val -> Val)
+  | VConstructor (ADT Id) Int Int [Val]
+  | VDeconstructor (ADT Id) Int [Val]
 
-instance Show e => Show (Val e) where
+instance Show Val where
     show (Val x) = printf "Val %s" (show x)
     show (VFun _ e) = printf "VFun(\\%s)" (show e)
+    show (VRecFun _ e) = printf "VRecFun(\\%s)" (show e)
     show VSysCall{} = printf "VSysCall"
     show (VConstructor adt n _ l) = let name = constructorName (adtConstructors adt !! n) in
         case reverse l of
@@ -41,28 +45,48 @@ instance Show e => Show (Val e) where
     show (VDeconstructor adt _ _) = printf "%s.." (show $ deconstructorName adt)
 
 
-getFree :: C.Context -> Name -> Val Expr
+getFree :: C.Context -> Name -> Val
 getFree ctx x | Just (cv, _) <- x `M.lookup` ctx =
     case cv of
         C.Value v -> Val v
         C.Constructor adt n i -> VConstructor adt n i []
         C.Deconstructor adt i -> VDeconstructor adt i []
-        C.SysCall f -> VSysCall (\(Val x) -> return $ aux (f x))
+        C.SysCall f -> VSysCall (\(Val x) -> aux (f x))
         where
             aux (StdLib.Val v) = Val v
-            aux (StdLib.Fun f) = VSysCall (\(Val x) -> return $ aux (f x))
+            aux (StdLib.Fun f) = VSysCall (\(Val x) -> aux (f x))
 getFree _ x = error $ printf "Unknown free variable: %s" (show x)
 
 
-type Eval e = State (Env e) (Val e)
+type Eval r a = (
+    Member (Reader C.Context) r,
+    Member (State Env) r)
+    => Eff r a
 
-evalAp :: Val Expr -> Val Expr -> Eval Expr
+push :: Val -> Eval r ()
+push x = modify (x:)
+
+local :: Eval r b -> Eval r b
+local m = do
+    (old :: Env) <- get
+    ret <- m
+    put old
+    return ret
+
+
+evalAp :: Val -> Val -> Eval r Val
 evalAp (VFun stk e) y =
     local $ do
         put stk
         push y
         evalE e
-evalAp (VSysCall f) y = f y
+evalAp f@(VRecFun stk e) y =
+    local $ do
+        put stk
+        push f
+        push y
+        evalE e
+evalAp (VSysCall f) y = return $ f y
 evalAp (VConstructor _ _ 0 _) _ = error "Attempting to evaluate product as function"
 evalAp (VConstructor adt n i l) x = return $ VConstructor adt n (i-1) (x:l)
 evalAp (VDeconstructor (adtName -> n) 0 _) (VConstructor (adtName -> n') _ 0 _)
@@ -74,9 +98,11 @@ evalAp (VDeconstructor _ 0 _) _ = error "Attempting to deconstruct non-product v
 evalAp (VDeconstructor adt i p) x = return $ VDeconstructor adt (i-1) (x:p)
 evalAp v _ = error $ printf "Error: attempting to evaluate %s as a function" (show v)
 
-evalE :: Expr -> Eval Expr
+evalE :: TypedExpr -> Eval r Val
 evalE (expr -> Bound i) = (!! i) <$> get
-evalE (expr -> Free g) = return $ getFree C.globalContext g
+evalE (expr -> Free g) = do
+    ctx <- ask
+    return $ getFree ctx g
 evalE (expr -> Const x) = return $ Val x
 evalE (expr -> If b e1 e2) = do
     vb <- evalE b
@@ -87,12 +113,9 @@ evalE (expr -> If b e1 e2) = do
 evalE (expr -> SFun e) = do
     stk <- get
     return $ VFun stk e
-evalE (expr -> SFix e) =
-    local $ do
-        rec
-            push body
-            body <- evalE e
-        return body
+evalE (expr -> SFix (expr -> SFun e)) = do
+    stk <- get
+    return $ VRecFun stk e
 evalE (expr -> SLet v e) = do
     vv <- evalE v
     local $ do
@@ -104,5 +127,9 @@ evalE (expr -> Ap f x) = do
     evalAp vf vx
 evalE _ = error "impossible"
 
-eval :: Expr -> Val Expr
-eval e = evalState (evalE e) []
+
+eval :: Program -> Val
+eval (ctx, e) = run $
+    flip runReader (C.globalContext <> ctx) $
+    evalState ([] :: [Val]) $
+        evalE e
