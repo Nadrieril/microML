@@ -24,6 +24,7 @@ import qualified DBT.Expr as DBT
 import Common.Expr
 import Common.Type
 import qualified Common.Context as C
+import Common.StdLib (globalContext)
 import DBT.Expr
 
 trace :: Show a => a -> b -> b
@@ -211,7 +212,7 @@ inferTypeE (LFixP t e) =
 
 inferType :: C.Context -> DBT.Expr -> ([UnificationError], TypedExpr)
 inferType ctx e = run $
-    flip runReader (C.globalContext <> ctx) $
+    flip runReader (globalContext <> ctx) $
     evalState (0 :: Int) $
     evalState ([] :: Stack Type) $
     evalState (UF.empty :: UF.UnionFind MonoType) $

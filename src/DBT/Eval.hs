@@ -13,13 +13,12 @@ import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, get, put, modify, evalState)
 import Control.Eff.Reader.Strict (Reader, ask, runReader)
 import Text.Printf (printf)
-import qualified Debug.Trace as T
 
 import AST.Parse (isOperator)
-import qualified Common.StdLib as StdLib
 import Common.Expr
 import Common.ADT
 import qualified Common.Context as C
+import Common.StdLib (globalContext)
 import DBT.Expr
 
 
@@ -45,16 +44,15 @@ instance Show Val where
     show (VDeconstructor adt _ _) = printf "%s.." (show $ deconstructorName adt)
 
 
+fromContext :: C.ContextValue -> Val
+fromContext = \case
+    C.Value v -> Val v
+    C.Constructor adt n i -> VConstructor adt n i []
+    C.Deconstructor adt i -> VDeconstructor adt i []
+    C.SysCall f -> VSysCall (\(Val x) -> fromContext (f x))
+
 getFree :: C.Context -> Name -> Val
-getFree ctx x | Just (cv, _) <- x `M.lookup` ctx =
-    case cv of
-        C.Value v -> Val v
-        C.Constructor adt n i -> VConstructor adt n i []
-        C.Deconstructor adt i -> VDeconstructor adt i []
-        C.SysCall f -> VSysCall (\(Val x) -> aux (f x))
-        where
-            aux (StdLib.Val v) = Val v
-            aux (StdLib.Fun f) = VSysCall (\(Val x) -> aux (f x))
+getFree ctx x | Just (cv, _) <- x `M.lookup` ctx = fromContext cv
 getFree _ x = error $ printf "Unknown free variable: %s" (show x)
 
 
@@ -130,6 +128,6 @@ evalE _ = error "impossible"
 
 eval :: Program -> Val
 eval (ctx, e) = run $
-    flip runReader (C.globalContext <> ctx) $
+    flip runReader (globalContext <> ctx) $
     evalState ([] :: [Val]) $
         evalE e

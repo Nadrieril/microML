@@ -3,15 +3,11 @@ module Common.Context (
       Context
     , ContextValue(..)
     , contextFromADTs
-    , globalContext
     ) where
 
-import Data.Monoid
 import qualified Data.Map as M
-import Control.Arrow
 
 import Common.Expr (Id, Name, Value)
-import qualified Common.StdLib as Std
 import Common.ADT hiding (Constructor)
 import Common.Type
 
@@ -20,7 +16,7 @@ data ContextValue =
       Value Value
     | Constructor (ADT Id) Id Int
     | Deconstructor (ADT Id) Int
-    | SysCall (Value -> Std.StdLibValue)
+    | SysCall (Value -> ContextValue)
 
 type Context = M.Map Name (ContextValue, Type)
 
@@ -36,14 +32,3 @@ adtContext adt =
 
 contextFromADTs :: [ADT Name] -> Context
 contextFromADTs adts = mconcat (map (adtContext . bindTypeVars) adts)
-
-stdContext :: Context
-stdContext =
-    let f (Std.Val v) = Value v
-        f (Std.Fun f) = SysCall f in
-    let sctv = Std.sysCallToValue . Std.getSysCall in
-    let sctt = Std.sysCallToType . Std.getSysCall in
-    M.fromList $ map (id &&& (f . sctv &&& sctt)) Std.sysCalls
-
-globalContext :: Context
-globalContext = stdContext <> contextFromADTs Std.adts

@@ -57,7 +57,7 @@ data Value =
     | RecClosure (Code, Env)
     | Constructor Name Int Int [Value]
     | Deconstructor Name Int [Value]
-    | PartialSysCall (Expr.Value -> Std.StdLibValue)
+    | PartialSysCall (Expr.Value -> C.ContextValue)
 
 instance Show Value where
     show (Value x) = printf "Value %s" (show x)
@@ -70,15 +70,17 @@ instance Show Value where
     show (PartialSysCall _) = printf "PartialSysCall"
 
 
+fromContext :: C.ContextValue -> Value
+fromContext = \case
+    C.Value v -> Value v
+    C.Constructor adt n i -> let name = ADT.constructorName (ADT.adtConstructors adt !! n) in
+            Constructor name n i []
+    C.Deconstructor adt i -> Deconstructor (ADT.adtName adt) i []
+    C.SysCall sc -> PartialSysCall sc
+
 getSysCall :: Name -> Value
 getSysCall x
-    | Just (cv, _) <- x `M.lookup` C.globalContext  =
-        case cv of
-            C.Value v -> Value v
-            C.Constructor adt n i -> let name = ADT.constructorName (ADT.adtConstructors adt !! n) in
-                    Constructor name n i []
-            C.Deconstructor adt i -> Deconstructor (ADT.adtName adt) i []
-            C.SysCall sc -> PartialSysCall sc
+    | Just (cv, _) <- x `M.lookup` Std.globalContext = fromContext cv
     | otherwise = error $ printf "Unknown syscall: %s" (show x)
 
 
@@ -137,9 +139,7 @@ evalAp = \case
 
     PartialSysCall f -> do
             Value v <- pop valstack
-            push valstack $ case f v of
-                Std.Val v' -> Value v'
-                Std.Fun f' -> PartialSysCall f'
+            push valstack $ fromContext $ f v
 
     v -> error $ printf "Error: attempting to evaluate %s as a function" (show v)
 

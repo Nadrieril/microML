@@ -12,6 +12,7 @@ executable microml
           Utils.UnionFind
           Utils.ProxyStateEff
           Common.ADT
+          Common.Context
           Common.Expr
           Common.StdLib
           Common.Type
