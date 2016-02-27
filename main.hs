@@ -28,9 +28,6 @@ processFile showTyped file = do
     ctx <- evaluate $ contextFromADTs adts
     (errors, typed) <- evalerr "Type error" $ inferType ctx dbt
 
-    -- print adts
-    -- putStrLn ""
-
     when showTyped $ do
         print typed
         putStrLn ""

@@ -23,10 +23,10 @@ languageDef =
         , Token.commentLine     = "//"
         , Token.reservedNames   = [ "if" , "then" , "else"
                                   , "let", "rec", "in", "fun"
-                                  , "true" , "false"
+                                  , "data", "true" , "false"
                                   , "Int", "Bool"
                                   ]
-        , Token.reservedOpNames = ["::", "->", "=" ]
+        , Token.reservedOpNames = ["::", "->", "=", "|" ]
         , Token.opStart = Token.opLetter languageDef
         , Token.opLetter = oneOf ":!#$%&*+./<=>?@\\^|-~,"
     }
@@ -77,6 +77,21 @@ typ = buildExpressionParser typeOperators typeAtom
 
 typed :: Parser (UntypedExpr Name) -> Parser (TypedExpr Name)
 typed p = flip LFixP <$> p <*> optionMaybe (reservedOp "::" >> typ)
+
+-----------------------
+constructor :: Parser (Constructor Name)
+constructor = Constructor <$> typeIdent <*> many typeAtom
+
+adt :: Parser (ADT Name)
+adt = do
+    reserved "data"
+    name <- typeIdent
+    params <- many ident
+    reservedOp "="
+    constructors <- sepBy constructor (reservedOp "|")
+    reserved "in"
+    return $ ADT name params constructors Nothing
+    <?> "ADT"
 
 -----------------------
 operators :: forall st. [[Operator Char st (UntypedExpr Name)]]
@@ -161,25 +176,7 @@ expr :: Parser Expr
 expr = typed (buildExpressionParser operators funAp <?> "expression")
 
 program :: Parser Program
-program = (,) adts <$> expr
-
-adts = [ADT {
-      adtName = "Option"
-    , deconstructor = Nothing
-    , adtParams = ["a"]
-    , adtConstructors = [
-          Constructor "None" []
-        , Constructor "Some" [TVar "a"]
-    ]
-}, ADT {
-      adtName = "List"
-    , deconstructor = Nothing
-    , adtParams = ["a"]
-    , adtConstructors = [
-          Constructor "Nil" []
-        , Constructor "Cons" [TVar "a", TProduct "List" [TVar "a"]]
-    ]
-}]
+program = (,) <$> many adt <*> expr
 
 
 parseML :: String -> Either ParseError Program
