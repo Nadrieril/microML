@@ -8,6 +8,7 @@ module AFT.Expr
     ) where
 
 import Data.Maybe (isJust)
+import Control.Monad (mplus)
 import Text.Printf (printf)
 
 import Common.Expr
@@ -39,6 +40,7 @@ type TypedExpr v = LabelledExp (Maybe (Mono Name)) v
 type UntypedExpr v = AbstractExpr v (TypedExpr v)
 type Expr = TypedExpr Name
 
+
 instance Show v => Show (TypedExpr v) where
     show (LFixP Nothing e) = showE e
     show (LFixP (Just t) e) = printf "%s :: %s" (showE e) (show t)
@@ -53,16 +55,11 @@ showE (SLet x v e) = printf "let %s = %s in\n%s" (show x) (show v) (show e)
 showE (If b e1 e2) = printf "if %s then %s else %s" (show b) (show e1) (show e2)
 showE _ = error "impossible"
 
-mergeMaybe :: Maybe a -> Maybe a -> Maybe a
-mergeMaybe a b = case a of
-    Nothing -> b
-    Just a -> Just a
-
 fromAST :: AST.Expr -> Expr
 fromAST (LFixP t (AST.Wrap (LFixP t' e))) =
     if isJust t && isJust t'
         then error "multiple type annotations on the same expression"
-        else fromAST $ LFixP (t `mergeMaybe` t') e
+        else fromAST $ LFixP (t `mplus` t') e
 fromAST (LFixP t e) = LFixP t $
     case e of
         AST.Var v -> Var v

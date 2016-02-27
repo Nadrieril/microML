@@ -7,24 +7,29 @@ import Options
 
 import AST.Parse (parseML)
 import AFT.Expr (fromAST)
-import DBT.Expr (afttodbt, TypedExpr)
+import DBT.Expr (afttodbt, Program)
 import qualified DBT.Eval (eval)
 import DBT.Infer (inferType)
 
 import qualified ASM.Instr as ASM
 import qualified ASM.Eval as ASM
+import Common.Context (contextFromADTs)
 
 
 getFileContents :: FilePath -> IO String
 getFileContents file = if file == "-" then getContents else readFile file
 
-processFile :: Bool -> FilePath -> IO TypedExpr
+processFile :: Bool -> FilePath -> IO Program
 processFile showTyped file = do
     code <- getFileContents file
-    ast <- evalerr "Parse error" $ either (error.show) id $ parseML code
+    (adts, ast) <- evalerr "Parse error" $ either (error.show) id $ parseML code
     aft <- evaluate $ fromAST ast
     dbt <- evaluate $ afttodbt aft
-    (errors, typed) <- evalerr "Type error" $ inferType dbt
+    ctx <- evaluate $ contextFromADTs adts
+    (errors, typed) <- evalerr "Type error" $ inferType ctx dbt
+
+    -- print adts
+    -- putStrLn ""
 
     when showTyped $ do
         print typed
@@ -33,7 +38,7 @@ processFile showTyped file = do
     unless (null errors) $
         error $ unlines $ "Errors encountered while inferring types:" : map (("  "++) . show) errors
 
-    return typed
+    return (ctx, typed)
 
     where evalerr n x =
                 catch (evaluate x)
@@ -68,9 +73,9 @@ instance Options RunOptions where
 compileCmd :: MainOptions -> CompileOpts -> [String] -> IO ()
 compileCmd _ (CompileOpts optShow) args = do
     let [file] = args
-    typed <- processFile optShow file
+    program <- processFile optShow file
 
-    let compiled = ASM.compile typed
+    let compiled = ASM.compile program
     print compiled
 
 
@@ -83,10 +88,10 @@ typeCmd _ _ args =  do
 evalCmd :: MainOptions -> EvalOptions -> [String] -> IO ()
 evalCmd _ (EvalOptions optShow) args =  do
     let [file] = args
-    typed <- processFile optShow file
+    program <- processFile optShow file
 
     when optShow $ putStr "-> "
-    print $ DBT.Eval.eval typed
+    print $ DBT.Eval.eval program
 
 
 runCmd :: MainOptions -> RunOptions -> [String] -> IO ()

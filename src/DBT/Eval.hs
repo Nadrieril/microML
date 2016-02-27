@@ -7,10 +7,12 @@ module DBT.Eval
     ) where
 
 import qualified Data.Map as M
-import Text.Printf (printf)
+import Data.Monoid ((<>))
 import Data.Foldable (foldrM)
 import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, get, put, modify, evalState)
+import Control.Eff.Reader.Strict (Reader, ask, runReader)
+import Text.Printf (printf)
 import qualified Debug.Trace as T
 
 import AST.Parse (isOperator)
@@ -57,6 +59,7 @@ getFree _ x = error $ printf "Unknown free variable: %s" (show x)
 
 
 type Eval r a = (
+    Member (Reader C.Context) r,
     Member (State Env) r)
     => Eff r a
 
@@ -97,7 +100,9 @@ evalAp v _ = error $ printf "Error: attempting to evaluate %s as a function" (sh
 
 evalE :: TypedExpr -> Eval r Val
 evalE (expr -> Bound i) = (!! i) <$> get
-evalE (expr -> Free g) = return $ getFree C.globalContext g
+evalE (expr -> Free g) = do
+    ctx <- ask
+    return $ getFree ctx g
 evalE (expr -> Const x) = return $ Val x
 evalE (expr -> If b e1 e2) = do
     vb <- evalE b
@@ -123,7 +128,8 @@ evalE (expr -> Ap f x) = do
 evalE _ = error "impossible"
 
 
-eval :: TypedExpr -> Val
-eval e = run $
+eval :: Program -> Val
+eval (ctx, e) = run $
+    flip runReader (C.globalContext <> ctx) $
     evalState ([] :: [Val]) $
         evalE e

@@ -12,6 +12,7 @@ import qualified Text.ParserCombinators.Parsec.Token as Token
 import Common.Expr hiding (expr)
 import AST.Expr hiding (Infix)
 import qualified AST.Expr as AST
+import Common.ADT
 import Common.Type
 
 -----------------------------------------------------------------------------
@@ -159,6 +160,27 @@ funAp = foldl1 (Ap `on` untyped) <$> many1 atom <?> "function application"
 expr :: Parser Expr
 expr = typed (buildExpressionParser operators funAp <?> "expression")
 
+program :: Parser Program
+program = (,) adts <$> expr
 
-parseML :: String -> Either ParseError Expr
-parseML = parse (whiteSpace >> expr) ""
+adts = [ADT {
+      adtName = "Option"
+    , deconstructor = Nothing
+    , adtParams = ["a"]
+    , adtConstructors = [
+          Constructor "None" []
+        , Constructor "Some" [TVar "a"]
+    ]
+}, ADT {
+      adtName = "List"
+    , deconstructor = Nothing
+    , adtParams = ["a"]
+    , adtConstructors = [
+          Constructor "Nil" []
+        , Constructor "Cons" [TVar "a", TProduct "List" [TVar "a"]]
+    ]
+}]
+
+
+parseML :: String -> Either ParseError Program
+parseML = parse (whiteSpace >> program) ""

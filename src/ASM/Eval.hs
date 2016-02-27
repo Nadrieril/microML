@@ -92,15 +92,10 @@ newtype ValStack = ValStack (Stack Value)
 newtype CallStack = CallStack (Stack (Code, Env))
     deriving (Show, Stackable (Code, Env))
 
-
-code :: Proxy Code
-code = Proxy
-env :: Proxy Env
-env = Proxy
-valstack :: Proxy ValStack
-valstack = Proxy
-callstack :: Proxy CallStack
-callstack = Proxy
+code = Proxy :: Proxy Code
+env = Proxy :: Proxy Env
+valstack = Proxy :: Proxy ValStack
+callstack = Proxy :: Proxy CallStack
 
 
 type ASMEval r e =

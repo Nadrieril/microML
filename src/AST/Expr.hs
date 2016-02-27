@@ -6,11 +6,13 @@ module AST.Expr
     , TypedExpr
     , UntypedExpr
     , Expr
+    , Program
     ) where
 
 import Text.Printf (printf)
 
 import Common.Expr
+import Common.ADT
 import Common.Type
 
 
@@ -31,6 +33,9 @@ type LabelledExp l v = LFixP l (AbstractExpr v)
 type TypedExpr v = LabelledExp (Maybe (Mono Name)) v
 type UntypedExpr v = AbstractExpr v (TypedExpr v)
 type Expr = TypedExpr Name
+
+type Program = ([ADT Name], Expr)
+
 
 instance Show v => Show (TypedExpr v) where
     show (LFixP Nothing e) = showE e

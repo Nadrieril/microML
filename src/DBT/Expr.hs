@@ -7,19 +7,21 @@ module DBT.Expr
     , Id
     , LabelledExp
     , TypedExpr
+    , Program
     , afttodbt
-    , pattern SFun , pattern SFix , pattern SLet
+    , pattern SFun, pattern SFix, pattern SLet
     ) where
 
-import Text.Printf (printf)
 import Data.List (elemIndex)
 import Safe (atMay)
 import Control.Monad.State (State, get, evalState)
+import Text.Printf (printf)
 
 import Utils (Stack, withPush)
 import AST.Parse (isOperator)
 import Common.Expr
 import Common.Type
+import Common.Context
 import qualified AFT.Expr as AFT
 
 data AbstractExpr v a =
@@ -44,6 +46,8 @@ type LabelledExp l v = LFixP l (AbstractExpr v)
 
 type Expr = LabelledExp (Maybe (Mono Name)) Id
 type TypedExpr = LabelledExp MonoType Id
+
+type Program = (Context, TypedExpr)
 
 
 mapBind :: (Stack Name -> Either Name a -> Either Name a) -> LabelledExp l a -> LabelledExp l a

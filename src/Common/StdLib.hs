@@ -1,6 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, PatternSynonyms, OverloadedStrings #-}
 module Common.StdLib
     ( StdLibValue(..)
+    , adts
     , sysCalls
     , getSysCall
     , sysCallToValue
@@ -12,6 +13,7 @@ import Data.Proxy (Proxy(..))
 
 import Common.Expr
 import Common.Type
+import Common.ADT
 
 
 sysCalls :: [Name]
@@ -83,3 +85,17 @@ sysCallToValType sc = case sc of
         castProxy = const Proxy
         wrap :: (StdWrappable a, TypeWrappable a) => a -> (StdLibValue, Type)
         wrap x = (toStdValue x, TMono . toType $ castProxy x)
+
+
+adts :: [ADT Name]
+adts = [pair]
+
+pair :: ADT Name
+pair = ADT {
+      adtName = ","
+    , deconstructor = Just "unPair"
+    , adtParams = ["a", "b"]
+    , adtConstructors = [
+          Constructor "," [TVar "a", TVar "b"]
+    ]
+}
