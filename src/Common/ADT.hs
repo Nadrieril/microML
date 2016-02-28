@@ -23,6 +23,7 @@ data Constructor a = Constructor {
     , constructorParams :: [Mono a]
     } deriving (Functor)
 
+
 instance Show (ADT Id) where
     show = show . unBindTypeVars
 

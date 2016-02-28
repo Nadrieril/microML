@@ -20,6 +20,8 @@ Install [stack](http://docs.haskellstack.org/en/stable/README); run
 
     ./microml run <compiled file>
 
+You can use `-` instead of a file name to read from `stdin`.
+
 See the `tests/` folder for examples.
 
 ### Known bugs

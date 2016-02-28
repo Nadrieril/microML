@@ -50,7 +50,6 @@ data CompileOpts = CompileOpts Bool
 instance Options CompileOpts where
     defineOptions = pure CompileOpts
         <*> simpleOption "show" False "enable/disable parsed expression display"
-        -- <*> simpleOption "out" Nothing "output file"
 
 data TypeOptions = TypeOptions
 instance Options TypeOptions where

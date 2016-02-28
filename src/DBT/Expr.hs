@@ -69,6 +69,7 @@ mapBind f e = evalState (mapBind' f e) []
                         Right i -> Bound i
                         Left n -> Free n
 
+
 instance Show Expr where
     show (unDebruijn -> LFixP t e) = case t of
             Nothing -> s

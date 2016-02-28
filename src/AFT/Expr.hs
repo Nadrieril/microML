@@ -9,7 +9,6 @@ module AFT.Expr
 
 import Data.Maybe (isJust)
 import Control.Monad (mplus)
-import Text.Printf (printf)
 
 import Common.Expr
 import Common.Type
@@ -37,23 +36,8 @@ pattern SLet n v e <- Let v (Scope n e) where
 type LabelledExp l v = LFixP l (AbstractExpr v)
 
 type TypedExpr v = LabelledExp (Maybe (Mono Name)) v
-type UntypedExpr v = AbstractExpr v (TypedExpr v)
 type Expr = TypedExpr Name
 
-
-instance Show v => Show (TypedExpr v) where
-    show (LFixP Nothing e) = showE e
-    show (LFixP (Just t) e) = printf "%s :: %s" (showE e) (show t)
-
-showE :: Show v => UntypedExpr v -> String
-showE (Var x) = show x
-showE (Const c) = show c
-showE (Ap f x) = printf "(%s %s)" (show f) (show x)
-showE (SFun x e) = printf "(\\%s -> %s)" (show x) (show e)
-showE (SFix f e) = printf "fix(\\%s -> %s)" (show f) (show e)
-showE (SLet x v e) = printf "let %s = %s in\n%s" (show x) (show v) (show e)
-showE (If b e1 e2) = printf "if %s then %s else %s" (show b) (show e1) (show e2)
-showE _ = error "impossible"
 
 fromAST :: AST.Expr -> Expr
 fromAST (LFixP t (AST.Wrap (LFixP t' e))) =

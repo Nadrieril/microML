@@ -114,6 +114,7 @@ evalE (expr -> SFun e) = do
 evalE (expr -> SFix (expr -> SFun e)) = do
     stk <- get
     return $ VRecFun stk e
+evalE (expr -> SFix _) = error "Cannot evaluate arbitrary recursive expression"
 evalE (expr -> SLet v e) = do
     vv <- evalE v
     local $ do

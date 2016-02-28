@@ -19,8 +19,6 @@ import Data.Hashable (Hashable)
 import qualified Data.Map as M
 import qualified Data.IntSet as IS
 import Control.Monad (zipWithM)
-import Control.Arrow (first, second)
-import Control.Monad.State (State, gets, modify, evalState)
 import Text.Printf (printf)
 
 
@@ -64,37 +62,15 @@ instance Show (Mono Name) where
             foldarrow (t1 :-> t2) = t1:foldarrow t2
             foldarrow x = [x]
     show (TTuple t1 t2) = printf "(%s, %s)" (show t1) (show t2)
-    show (TProduct n l) = printf "%s%s" (show n) (show l)
+    show (TProduct n l) = printf "%s%s" (show n) (concatMap ((' ':) . show) l)
 
 
 calcVarName :: Mono TId -> Mono Name
-calcVarName e = evalState (auxMono e) (0, M.empty)
-    where
-        new :: State (Int, M.Map TId Name) Name
-        new = (Name . iToName <$> gets fst)
-                <* modify (first (+1))
-            where iToName = (:[]) . toEnum . (fromEnum 'a' +)
-        -- auxPoly :: Poly TId -> State (Int, M.Map TId Name) (Poly Name)
-        -- auxPoly t =
-        --     case t of
-        --         TMono t -> TMono <$> auxMono t
-        --         TBound i t -> do
-        --             n <- new
-        --             modify (second $ M.insert i n)
-        --             TBound n <$> auxPoly t
-        auxMono :: Mono TId -> State (Int, M.Map TId Name) (Mono Name)
-        auxMono (TConst t) = return $ TConst t
-        auxMono (TVar i) = do
-            nameMap <- gets snd
-            TVar <$> if i `M.member` nameMap
-                then return $ nameMap M.! i
-                else do
-                    n <- new
-                    modify (second $ M.insert i n)
-                    return n
-        auxMono (TProduct n l) = TProduct n <$> mapM auxMono l
-
-
+calcVarName t =
+    let varNames = Name . (:[]) <$> ['a'..] in
+    let freeVars = IS.toList $ free $ TMono t in
+    let m = M.fromList $ zip freeVars varNames in
+    fmap (m M.!) t
 
 
 instance Hashable TConst
