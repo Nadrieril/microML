@@ -64,7 +64,7 @@ instance Show (Mono Name) where
             foldarrow (t1 :-> t2) = t1:foldarrow t2
             foldarrow x = [x]
     show (TTuple t1 t2) = printf "(%s, %s)" (show t1) (show t2)
-    show (TProduct n l) = printf "%s%s" (show n) (show l)
+    show (TProduct n l) = printf "%s%s" (show n) (concatMap ((' ':) . show) l)
 
 
 calcVarName :: Mono TId -> Mono Name

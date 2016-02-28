@@ -63,7 +63,7 @@ instance Show Value where
     show (Value x) = printf "Value %s" (show x)
     show (Closure _) = printf "Closure"
     show (RecClosure _) = printf "RecClosure"
-    show (Constructor name _ _ l) = case l of
+    show (Constructor name _ _ l) = case reverse l of
             [x, y] | isOperator name -> printf "(%s %s %s)" (show x) (show name) (show y)
             l -> printf "%s%s" (show name) (show l)
     show (Deconstructor name _ _) = printf "un%s[..]" (show name)
