@@ -1,16 +1,14 @@
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, RankNTypes, FlexibleContexts, FlexibleInstances, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes, FlexibleContexts, GeneralizedNewtypeDeriving #-}
 module ASM.Eval where
 
 import Data.Proxy (Proxy(..))
-import Data.Typeable (Typeable)
-import Data.Maybe (fromJust)
 import qualified Data.Map as M
 import qualified Debug.Trace as T
 import Control.Monad (replicateM_, void, unless, forM_, when)
 import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, evalState)
 import Control.Eff.Reader.Strict (Reader, ask, runReader)
-import Utils.ProxyStateEff (get, put, modify)
+import Utils.ProxyStateEff (get, put)
 import Text.Printf (printf)
 
 -- import qualified Utils (trace)
@@ -22,33 +20,7 @@ import qualified Common.ADT as ADT
 import ASM.Instr (Instr)
 import qualified ASM.Instr as I
 import qualified Common.Context as C
-
-
-type Stack a = [a]
-
-class Stackable b a | a -> b where
-    wrapStack :: Stack b -> a
-    unwrapStack :: a -> Stack b
-
-instance Stackable a (Stack a) where
-    wrapStack = id
-    unwrapStack = id
-
-inStack :: Stackable b a => (Stack b -> Stack b) -> a -> a
-inStack = (wrapStack .) . (. unwrapStack)
-
-push :: (Stackable b a, Typeable a, Member (State a) r) => Proxy a -> b -> Eff r ()
-push p x = modify p (wrapStack . (x:) . unwrapStack)
-
-popM :: (Stackable b a, Typeable a, Member (State a) r) => Proxy a -> Eff r (Maybe b)
-popM p = do
-    xs <- get p
-    case unwrapStack xs of
-        [] -> return Nothing
-        x:xs -> put p (wrapStack xs) >> return (Just x)
-
-pop :: (Stackable b a, Typeable a, Member (State a) r) => Proxy a -> Eff r b
-pop p = fromJust <$> popM p
+import Utils.Stackable
 
 
 data Value =

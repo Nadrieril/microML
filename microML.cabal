@@ -9,8 +9,9 @@ executable microml
     hs-source-dirs: ., src
     other-modules:
           Utils
-          Utils.UnionFind
           Utils.ProxyStateEff
+          Utils.UnionFind
+          Utils.Stackable
           Common.ADT
           Common.Context
           Common.Expr
