@@ -1,4 +1,4 @@
-all: build eval
+all: build
 
 build:
 	stack build
