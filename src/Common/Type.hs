@@ -18,9 +18,11 @@ import Data.List (intercalate)
 import Data.Hashable (Hashable)
 import qualified Data.Map as M
 import qualified Data.IntSet as IS
+import Control.Monad (zipWithM)
 import Control.Arrow (first, second)
 import Control.Monad.State (State, gets, modify, evalState)
 import Text.Printf (printf)
+
 
 import Common.Expr (Name(..))
 
@@ -117,11 +119,11 @@ free (TMono t) = f t
 bind :: MonoType -> Type
 bind t = IS.foldr TBound (TMono t) (free $ TMono t)
 
-mergeTypes :: MonoType -> MonoType -> MonoType
-mergeTypes t1 t2 | t1 == t2 = t1
-mergeTypes (TVar i1) (TVar i2) = TVar (min i1 i2)
-mergeTypes (TVar _) t2 = t2
-mergeTypes t1 (TVar _) = t1
+mergeTypes :: MonoType -> MonoType -> Either (MonoType, MonoType) MonoType
+mergeTypes t1 t2 | t1 == t2 = return t1
+mergeTypes (TVar i1) (TVar i2) = return $ TVar (min i1 i2)
+mergeTypes (TVar _) t2 = return t2
+mergeTypes t1 (TVar _) = return t1
 mergeTypes (TProduct n1 tl1) (TProduct n2 tl2)
-        | n1 == n2 = TProduct n1 $ zipWith mergeTypes tl1 tl2
-mergeTypes t1 t2 = error $ printf "Cannot merge different types (%s and %s)" (show t1) (show t2)
+        | n1 == n2 = TProduct n1 <$> zipWithM mergeTypes tl1 tl2
+mergeTypes t1 t2 = Left (t1, t2)

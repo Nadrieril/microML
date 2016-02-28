@@ -16,6 +16,7 @@ import Control.Eff.State.Strict (State, get, put, modify, evalState)
 import Control.Eff.Reader.Strict (Reader, ask, runReader)
 import Control.Eff.Writer.Strict (Writer, tell, runWriter)
 import Text.Printf (printf)
+-- import qualified Debug.Trace as T
 
 import Utils (Stack)
 import qualified Utils (trace)
@@ -36,10 +37,11 @@ getFree ctx x | Just (_, t) <- x `M.lookup` ctx = t
 getFree _ x = error $ printf "Unknown free variable: %s" (show x)
 
 
-data UnificationError = UnificationError TypedExpr MonoType MonoType
+data UnificationError = UnificationError (Maybe TypedExpr) MonoType MonoType
 
 instance Show UnificationError where
-  show (UnificationError e t1 t2) = printf "Cannot unify %s and %s in (%s)" (show t1) (show t2) (show e)
+  show (UnificationError e t1 t2) = let expstr = fromMaybe "?" (show <$> e) in
+      printf "Cannot unify %s and %s in (%s)" (show t1) (show t2) expstr
 
 
 type Env r e = (
@@ -72,7 +74,11 @@ freshV = do
     return i
 
 union :: MonoType -> MonoType -> Env r ()
-union x y = modify (UF.union' mergeTypes x y)
+union x y = do
+    uf <- get
+    case UF.unionMergeFail mergeTypes x y uf of
+        Right uf -> put uf
+        Left (t1, t2) -> tell $ UnificationError Nothing t1 t2
 
 find :: MonoType -> Env r MonoType
 find (TProduct n tl) = TProduct n <$> mapM find tl
@@ -116,7 +122,7 @@ unify e t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
             | n1 == n2 = zipWithM_ unify_ tl1 tl2
         unify_ t1 t2
             | t1 == t2 = return ()
-            | otherwise = tell $ UnificationError e t1 t2
+            | otherwise = tell $ UnificationError (Just e) t1 t2
 
 
 partialBind :: MonoType -> Env r Type

@@ -3,7 +3,8 @@ module Utils.UnionFind (
       UnionFind
     , empty
     , union
-    , union'
+    , unionMerge
+    , unionMergeFail
     , find
     , equivalent
     , classes
@@ -96,26 +97,29 @@ equivalent uf x y = flip evalState uf $ do
 
 
 union :: (Show a, Eq a, Hashable a) => a -> a -> UnionFind a -> UnionFind a
-union = union' const
+union = unionMerge const
 
-union' :: (Show a, Eq a, Hashable a) => (a -> a -> a) -> a -> a -> UnionFind a -> UnionFind a
-union' merge x y uf = trace uf $ trace ("union " ++ show x ++ ", " ++ show y) $ flip evalState uf $ do
+unionMerge :: (Show a, Eq a, Hashable a) => (a -> a -> a) -> a -> a -> UnionFind a -> UnionFind a
+unionMerge merge x y uf = (\(Right x) -> x) $ unionMergeFail ((Right.) . merge) x y uf
+
+unionMergeFail :: (Show a, Eq a, Hashable a) => (a -> a -> Either b a) -> a -> a -> UnionFind a -> Either b (UnionFind a)
+unionMergeFail merge x y uf = trace uf $ trace ("union " ++ show x ++ ", " ++ show y) $ flip evalState uf $ do
     (i1, r1, a1) <- reprInfo x
     (i2, r2, a2) <- reprInfo y
-    let a = merge a1 a2
     uf@UnionFind{..} <- get
-    let !imap' = if i1 == i2 then imap else
-            case r1 `compare` r2 of
-              LT ->
-                let !imap1 = IM.insert i1 (Link i2) imap in
-                IM.insert i2 (Repr r2 a) imap1
-              EQ ->
-                let !imap1 = IM.insert i1 (Link i2) imap in
-                IM.insert i2 (Repr (r2 + 1) a) imap1
-              GT ->
-                let !imap1 = IM.insert i2 (Link i1) imap in
-                IM.insert i1 (Repr r1 a) imap1
-    return $ uf {imap = imap'}
+    return $ merge a1 a2 >>= \a ->
+        let !imap' = if i1 == i2 then imap else
+                case r1 `compare` r2 of
+                  LT ->
+                    let !imap1 = IM.insert i1 (Link i2) imap in
+                    IM.insert i2 (Repr r2 a) imap1
+                  EQ ->
+                    let !imap1 = IM.insert i1 (Link i2) imap in
+                    IM.insert i2 (Repr (r2 + 1) a) imap1
+                  GT ->
+                    let !imap1 = IM.insert i2 (Link i1) imap in
+                    IM.insert i1 (Repr r1 a) imap1
+        in Right $ uf {imap = imap'}
 
 
 classes :: (Eq a, Hashable a) => UnionFind a -> [[a]]
