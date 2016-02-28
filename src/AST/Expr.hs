@@ -9,8 +9,6 @@ module AST.Expr
     , Program
     ) where
 
-import Text.Printf (printf)
-
 import Common.Expr
 import Common.ADT
 import Common.Type
@@ -35,20 +33,3 @@ type UntypedExpr v = AbstractExpr v (TypedExpr v)
 type Expr = TypedExpr Name
 
 type Program = ([ADT Name], Expr)
-
-
-instance Show v => Show (TypedExpr v) where
-    show (LFixP Nothing e) = showE e
-    show (LFixP (Just t) e) = printf "%s :: %s" (showE e) (show t)
-
-showE :: Show v => AbstractExpr v (TypedExpr v) -> String
-showE (Var x) = show x
-showE (Const c) = show c
-showE (Infix o x y) = printf "(%s %s %s)" (show x) (show o) (show y)
-showE (Negate x) = printf "-%s" (show x)
-showE (Ap f x) = printf "(%s %s)" (show f) (show x)
-showE (Let x v e) = printf "let %s = %s in\n%s" (show x) (show v) (show e)
-showE (LetR x v e) = printf "let rec %s = %s in\n%s" (show x) (show v) (show e)
-showE (If b e1 e2) = printf "if %s then %s else %s" (show b) (show e1) (show e2)
-showE (Fun x e) = printf "(\\%s -> %s)" (show x) (show e)
-showE (Wrap e) = printf "(%s)" (show e)
