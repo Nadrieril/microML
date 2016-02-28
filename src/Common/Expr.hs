@@ -35,10 +35,4 @@ instance Read Value where
                       ++ [(I i, s) | (i, s) <- reads r])
 
 
-data SysCall =
-      Plus | Minus | Mult | Div
-    | And | Or | Eq
-    deriving (Show)
-
-
 data LFixP l f = LFixP { label :: l, expr :: f (LFixP l f) }

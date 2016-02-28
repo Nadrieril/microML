@@ -32,10 +32,10 @@ data UnionFind a = UnionFind {
 }
 
 data Link a
-    = Repr {-# UNPACK #-} !Int a
       -- Descriptive element of the equivalence class and its rank.
-    | Link {-# UNPACK #-} !Ptr
+    = Repr {-# UNPACK #-} !Int a
       -- Pointer to some other element of the equivalence class.
+    | Link {-# UNPACK #-} !Ptr
      deriving Show
 
 instance (Show a, Eq a, Hashable a) => Show (UnionFind a) where
@@ -124,11 +124,11 @@ unionMergeFail merge x y uf = trace uf $ trace ("union " ++ show x ++ ", " ++ sh
 
 classes :: (Eq a, Hashable a) => UnionFind a -> [[a]]
 classes = evalState classes'
-
-classes' :: (Eq a, Hashable a) => State (UnionFind a) [[a]]
-classes' = do
-    UnionFind{..} <- get
-    elems <- forM (HM.keys hmap) $ \x -> do
-            i <- findKey x
-            return (i, [x])
-    return $ IM.elems $ IM.fromListWith (++) elems
+    where
+        classes' :: (Eq a, Hashable a) => State (UnionFind a) [[a]]
+        classes' = do
+            UnionFind{..} <- get
+            elems <- forM (HM.keys hmap) $ \x -> do
+                    i <- findKey x
+                    return (i, [x])
+            return $ IM.elems $ IM.fromListWith (++) elems
