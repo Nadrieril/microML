@@ -59,7 +59,7 @@ state f = do
     put s'
     return x
 
-localPush :: Type -> Env r a -> Env r a
+localPush :: Type -> Eff r a -> Env r a
 localPush x m = do
     modify (x:)
     ret <- m
@@ -211,8 +211,7 @@ inferTypeE (LFixP t e) =
                 return $ LFixP (label e) (Let (LFixP t v) s)
 
           inferScope :: Type -> Scope DBT.Expr -> Env r (Scope TypedExpr)
-          inferScope t (Scope n e) = Scope n <$> localPush t (inferTypeE e)
-
+          inferScope t = traverse (localPush t . inferTypeE)
 
 inferType :: C.Context -> DBT.Expr -> ([UnificationError], TypedExpr)
 inferType ctx e = run $
