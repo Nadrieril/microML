@@ -107,6 +107,12 @@ inst t = do
         unbind (TMono t) = ([], t)
         unbind (TBound i t) = first (i:) $ unbind t
 
+occursCheck :: TId -> MonoType -> Env r Bool
+occursCheck i t = do
+    t <- find t
+    case t of
+        TVar j -> return $ i == j
+        TProduct _ tl -> or <$> forM tl (occursCheck i)
 
 unify :: TypedExpr -> MonoType -> MonoType -> Env r ()
 unify e t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
@@ -115,8 +121,12 @@ unify e t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
     unify_ t1 t2
     where
         unify_ :: MonoType -> MonoType -> Env r ()
-        unify_ t1@(TVar _) t2 = t1 `union` t2
-        unify_ t1 t2@(TVar _) = t1 `union` t2
+        unify_ t1@(TVar i) t2 = do
+            b <- occursCheck i t2
+            if b && t2 /= t1
+                then tell $ UnificationError (Just e) t1 t2
+                else t1 `union` t2
+        unify_ t1 t2@(TVar _) = unify_ t2 t1
         unify_ (TProduct n1 tl1) (TProduct n2 tl2)
             | n1 == n2 = zipWithM_ (unify e) tl1 tl2
         unify_ t1 t2
