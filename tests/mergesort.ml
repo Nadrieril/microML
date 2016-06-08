@@ -40,12 +40,12 @@ let rec merge = fun l1 -> fun l2 ->
       l1 in
 
 let rec mergeSort = fun l ->
-    if length l <= 2
+    if length l <= 1
     then l
     else
       let z = split l in
       merge (mergeSort (fst z)) (mergeSort (snd z))
 in
 
-let l = 1:4:2:8:5:7:Nil in
+let l = 1:5:2:8:4:7:Nil in
 mergeSort l

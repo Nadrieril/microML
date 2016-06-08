@@ -8,4 +8,5 @@ let y = Left false :: Option Bool in
 let f = fun x -> x+1 in
 let ff = f f in
 let g = fun x -> fromEither (Left x :: Either Int Bool) in
+let w = fun x -> x x in
 0
