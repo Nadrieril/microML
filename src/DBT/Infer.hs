@@ -81,18 +81,17 @@ union x y = do
         Left (t1, t2) -> tell $ UnificationError Nothing t1 t2
 
 find :: MonoType -> Env r MonoType
-find (TProduct n tl) = TProduct n <$> mapM find tl
-find t = do
-    t <- state (UF.find t)
+find t = state (UF.find t)
+
+findDeep :: MonoType -> Env r MonoType
+findDeep t = do
+    t <- find t
     case t of
-        (TProduct _ _) -> autoUnion t
-        _ -> return t
-    where
-        autoUnion :: MonoType -> Env r MonoType
-        autoUnion t = do -- We can unify further both sides
-            t' <- find t
+        TProduct n tl -> do
+            t' <- TProduct n <$> mapM findDeep tl
             t `union` t'
             return t'
+        _ -> return t
 
 getType :: Id -> Env r Type
 getType i = (!! i) <$> get
@@ -119,7 +118,7 @@ unify e t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
         unify_ t1@(TVar _) t2 = t1 `union` t2
         unify_ t1 t2@(TVar _) = t1 `union` t2
         unify_ (TProduct n1 tl1) (TProduct n2 tl2)
-            | n1 == n2 = zipWithM_ unify_ tl1 tl2
+            | n1 == n2 = zipWithM_ (unify e) tl1 tl2
         unify_ t1 t2
             | t1 == t2 = return ()
             | otherwise = tell $ UnificationError (Just e) t1 t2
@@ -127,11 +126,10 @@ unify e t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
 
 partialBind :: MonoType -> Env r Type
 partialBind t = do
-    t <- TMono <$> find t
-    let freeInT = free t
     stk <- get
+    let freeInT = free $ TMono t
     let freeInStack = IS.unions (map free stk)
-    return $ IS.foldr TBound t (freeInT IS.\\ freeInStack)
+    return $ IS.foldr TBound (TMono t) (freeInT IS.\\ freeInStack)
 
 typeof :: Value -> Mono a
 typeof (B _) = TConst TBool
@@ -207,7 +205,7 @@ inferTypeE (LFixP t e) =
 
             Let v s -> do
                 LFixP t v <- inferTypeE v
-                t <- find t
+                t <- findDeep t
                 t' <- partialBind t
                 s@(Scope _ e) <- inferScope t' s
                 return $ LFixP (label e) (Let (LFixP t v) s)
@@ -223,10 +221,12 @@ inferType ctx e = run $
     evalState ([] :: Stack Type) $
     evalState (UF.empty :: UF.UnionFind MonoType) $
     runWriter (:) ([] :: [UnificationError]) $ do
-        LFixP t e <- inferTypeE e
-        t <- find t
-        let e' = LFixP t e
+        -- LFixP t e <- inferTypeE e
+        -- t <- find t
+        -- let e' = LFixP t e
+        -- trace uf $ return e'
 
+        e <- inferTypeE e
+        -- e <- traverse findDeep e
         (uf :: UF.UnionFind MonoType) <- get
-        -- trace uf $ traverse findP e'
-        trace uf $ return e'
+        trace uf $ return e

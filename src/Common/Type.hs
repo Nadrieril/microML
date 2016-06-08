@@ -96,10 +96,10 @@ bind :: MonoType -> Type
 bind t = IS.foldr TBound (TMono t) (free $ TMono t)
 
 mergeTypes :: MonoType -> MonoType -> Either (MonoType, MonoType) MonoType
-mergeTypes t1 t2 | t1 == t2 = return t1
 mergeTypes (TVar i1) (TVar i2) = return $ TVar (min i1 i2)
 mergeTypes (TVar _) t2 = return t2
 mergeTypes t1 (TVar _) = return t1
 mergeTypes (TProduct n1 tl1) (TProduct n2 tl2)
         | n1 == n2 = TProduct n1 <$> zipWithM mergeTypes tl1 tl2
+mergeTypes t1 t2 | t1 == t2 = return t1
 mergeTypes t1 t2 = Left (t1, t2)
