@@ -1,7 +1,9 @@
 {-# LANGUAGE DeriveGeneric, PatternSynonyms, FlexibleInstances #-}
 module Common.Type
     ( TId
-    , TConst(..)
+    , pattern TConst
+    , pattern TBool
+    , pattern TInt
     , Mono(..)
     , Poly(..)
     , MonoType
@@ -29,12 +31,16 @@ infixr 4 :->
 
 type TId = Int
 
-data TConst = TBool | TInt
-    deriving (Eq, Generic)
+pattern TConst n <- TProduct n [] where
+        TConst n = TProduct n []
+
+pattern TBool <- Name "Bool" where
+        TBool = Name "Bool"
+pattern TInt <- Name "Int" where
+        TInt = Name "Int"
 
 data Mono a =
-      TConst TConst
-    | TVar a
+      TVar a
     | TProduct Name [Mono a]
     deriving (Eq, Generic, Functor)
 
@@ -46,10 +52,6 @@ data Poly a =
 type Type = Poly TId
 type MonoType = Mono TId
 
-
-instance Show TConst where
-    show TBool = "Bool"
-    show TInt = "Int"
 
 instance Show (Mono TId) where
     show = show . calcVarName
@@ -73,7 +75,6 @@ calcVarName t =
     fmap (m M.!) t
 
 
-instance Hashable TConst
 instance Hashable a => Hashable (Mono a)
 instance Hashable a => Hashable (Poly a)
 
@@ -88,7 +89,6 @@ free :: Type -> IS.IntSet
 free (TBound i t) = IS.delete i (free t)
 free (TMono t) = f t
     where
-        f (TConst _) = IS.empty
         f (TVar i) = IS.singleton i
         f (TProduct _ l) = IS.unions $ fmap f l
 

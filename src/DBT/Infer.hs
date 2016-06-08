@@ -139,7 +139,6 @@ projectType :: Mono Name -> Env r MonoType
 projectType t = evalState (M.empty :: M.Map Name Int) (f t)
     where
         f :: (Member (State (M.Map Name Int)) r) => Mono Name -> Env r MonoType
-        f (TConst c) = return $ TConst c
         f (TVar n) = do
             state <- get
             case M.lookup n state of
