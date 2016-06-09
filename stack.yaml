@@ -2,7 +2,4 @@ flags: {}
 extra-package-dbs: []
 packages:
 - '.'
-extra-deps:
-- extensible-effects-1.11.0.3
-- type-aligned-0.9.6
-resolver: lts-4.0
+resolver: lts-5.1
