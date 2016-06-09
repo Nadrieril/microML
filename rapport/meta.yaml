@@ -1,0 +1,12 @@
+---
+title: "Projet: compilateur pour un sous-ensemble de ML"
+author:
+    - Guillaume Boisseau
+header-includes:
+    - \usepackage{diagbox}
+    - \usepackage{tikz}
+    - \usepackage{tikz-qtree}
+    - \usepackage{subcaption}
+    - \usepackage{stmaryrd}
+    - \usepackage[]{algorithm2e}
+---
