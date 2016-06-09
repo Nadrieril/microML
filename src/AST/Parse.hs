@@ -15,7 +15,8 @@ import qualified AST.Expr as AST
 import Common.ADT
 import Common.Type
 
------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+--- Lexer / Parser ---
 languageDef =
     emptyDef
         { Token.commentStart    = "(*"
@@ -33,19 +34,34 @@ languageDef =
 
 lexer = Token.makeTokenParser languageDef
 
-ident      = Name <$> Token.identifier lexer -- parses an identifier
-operator   = Name <$> Token.operator lexer -- parses an operator
-reserved   = Token.reserved   lexer -- parses a reserved name
-reservedOp = Token.reservedOp lexer -- parses an operator
-parens     = Token.parens     lexer -- parses surrounding parenthesis
-natural    = Token.natural    lexer -- parses an natural
-whiteSpace = Token.whiteSpace lexer -- parses whitespace
+ident      = Name <$> Token.identifier lexer
+operator   = Name <$> Token.operator lexer
+reserved   = Token.reserved   lexer
+reservedOp = Token.reservedOp lexer
+parens     = Token.parens     lexer
+natural    = Token.natural    lexer
+whiteSpace = Token.whiteSpace lexer
 
------------------------
 isOperator :: Name -> Bool
 isOperator (Name n) = isRight $ parse operator "" n
 
------------------------
+identOrOp :: Parser Name
+identOrOp = ident <|> parens operator
+
+-------------------------------------------------------------------------------
+--- Literals ---
+boolean :: Parser (UntypedExpr Name)
+boolean = fmap (Const . B) (
+          (reserved "true" >> return True)
+      <|> (reserved "false" >> return False)
+      <?> "boolean")
+
+integer :: Parser (UntypedExpr Name)
+integer = (Const . I) <$> natural
+    <?> "integer"
+
+-------------------------------------------------------------------------------
+--- Types ---
 untyped :: UntypedExpr a -> TypedExpr a
 untyped = LFixP Nothing
 
@@ -78,7 +94,8 @@ typ = buildExpressionParser typeOperators typeAtom
 typed :: Parser (UntypedExpr Name) -> Parser (TypedExpr Name)
 typed p = flip LFixP <$> p <*> optionMaybe (reservedOp "::" >> typ)
 
------------------------
+-------------------------------------------------------------------------------
+--- ADTs ---
 constructor :: Parser (Constructor Name)
 constructor = Constructor <$> typeIdent <*> many typeAtom
 
@@ -93,7 +110,8 @@ adt = do
     return $ ADT name params constructors Nothing
     <?> "ADT"
 
------------------------
+-------------------------------------------------------------------------------
+--- Operators ---
 operators :: forall st. [[Operator Char st (UntypedExpr Name)]]
 operators = [ [neg]
             , [l "*", l "/"]
@@ -108,8 +126,7 @@ operators = [ [neg]
     where
         f (Name c) v = reservedOp c >> return v
         neg = Prefix (f "-" (Negate . untyped))
-        inf = Infix . (h <$>)
-            where h o = AST.Infix o `on` untyped
+        inf = Infix . fmap (\o -> AST.Infix o `on` untyped)
         l o = inf (f o o) AssocLeft
         r o = inf (f o o) AssocRight
         anythingelse = inf otherop AssocRight
@@ -119,20 +136,8 @@ operators = [ [neg]
                 then unexpected (show x)
                 else return x
 
-
-identOrOp :: Parser Name
-identOrOp = ident <|> parens operator
-
-boolean :: Parser (UntypedExpr Name)
-boolean = fmap (Const . B) (
-          (reserved "true" >> return True)
-      <|> (reserved "false" >> return False)
-      <?> "boolean")
-
-integer :: Parser (UntypedExpr Name)
-integer = (Const . I) <$> natural
-    <?> "integer"
-
+-------------------------------------------------------------------------------
+--- Expressions ---
 variable :: Parser (UntypedExpr Name)
 variable = Var <$> identOrOp
     <?> "variable"
@@ -158,7 +163,6 @@ lambda = Fun <$> (reserved "fun" >> identOrOp)
              <*> (reservedOp "->" >> expr)
     <?> "lambda"
 
-
 atom :: Parser (UntypedExpr Name)
 atom =  try variable
     <|> (Wrap <$> parens expr)
@@ -175,6 +179,8 @@ funAp = foldl1 (Ap `on` untyped) <$> many1 atom <?> "function application"
 expr :: Parser Expr
 expr = typed (buildExpressionParser operators funAp <?> "expression")
 
+-------------------------------------------------------------------------------
+--- Program ---
 program :: Parser Program
 program = (,) <$> many adt <*> expr
 
