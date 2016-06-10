@@ -33,7 +33,7 @@ pattern SFix n e <- Fix (Scope n e) where
 pattern SLet n v e <- Let v (Scope n e) where
     SLet n v e = Let v (Scope n e)
 
-type LabelledExp l v = LFixP l (AbstractExpr v)
+type LabelledExp l v = LFixP (AbstractExpr v) l
 
 type TypedExpr v = LabelledExp (Maybe (Mono Name)) v
 type Expr = TypedExpr Name

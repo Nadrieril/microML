@@ -59,7 +59,7 @@ state f = do
     put s'
     return x
 
-localPush :: Type -> Env r a -> Env r a
+localPush :: Type -> Eff r a -> Env r a
 localPush x m = do
     modify (x:)
     ret <- m
@@ -81,18 +81,17 @@ union x y = do
         Left (t1, t2) -> tell $ UnificationError Nothing t1 t2
 
 find :: MonoType -> Env r MonoType
-find (TProduct n tl) = TProduct n <$> mapM find tl
-find t = do
-    t <- state (UF.find t)
+find t = state (UF.find t)
+
+findDeep :: MonoType -> Env r MonoType
+findDeep t = do
+    t <- find t
     case t of
-        (TProduct _ _) -> autoUnion t
-        _ -> return t
-    where
-        autoUnion :: MonoType -> Env r MonoType
-        autoUnion t = do -- We can unify further both sides
-            t' <- find t
+        TProduct n tl -> do
+            t' <- TProduct n <$> mapM findDeep tl
             t `union` t'
             return t'
+        _ -> return t
 
 getType :: Id -> Env r Type
 getType i = (!! i) <$> get
@@ -108,6 +107,12 @@ inst t = do
         unbind (TMono t) = ([], t)
         unbind (TBound i t) = first (i:) $ unbind t
 
+occursCheck :: TId -> MonoType -> Env r Bool
+occursCheck i t = do
+    t <- find t
+    case t of
+        TVar j -> return $ i == j
+        TProduct _ tl -> or <$> forM tl (occursCheck i)
 
 unify :: TypedExpr -> MonoType -> MonoType -> Env r ()
 unify e t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
@@ -116,10 +121,14 @@ unify e t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
     unify_ t1 t2
     where
         unify_ :: MonoType -> MonoType -> Env r ()
-        unify_ t1@(TVar _) t2 = t1 `union` t2
-        unify_ t1 t2@(TVar _) = t1 `union` t2
+        unify_ t1@(TVar i) t2 = do
+            b <- occursCheck i t2
+            if b && t2 /= t1
+                then tell $ UnificationError (Just e) t1 t2
+                else t1 `union` t2
+        unify_ t1 t2@(TVar _) = unify_ t2 t1
         unify_ (TProduct n1 tl1) (TProduct n2 tl2)
-            | n1 == n2 = zipWithM_ unify_ tl1 tl2
+            | n1 == n2 = zipWithM_ (unify e) tl1 tl2
         unify_ t1 t2
             | t1 == t2 = return ()
             | otherwise = tell $ UnificationError (Just e) t1 t2
@@ -127,11 +136,10 @@ unify e t1 t2 = trace ("unify " ++ show t1 ++ ", " ++ show t2) $ do
 
 partialBind :: MonoType -> Env r Type
 partialBind t = do
-    t <- TMono <$> find t
-    let freeInT = free t
     stk <- get
+    let freeInT = free $ TMono t
     let freeInStack = IS.unions (map free stk)
-    return $ IS.foldr TBound t (freeInT IS.\\ freeInStack)
+    return $ IS.foldr TBound (TMono t) (freeInT IS.\\ freeInStack)
 
 typeof :: Value -> Mono a
 typeof (B _) = TConst TBool
@@ -141,7 +149,6 @@ projectType :: Mono Name -> Env r MonoType
 projectType t = evalState (M.empty :: M.Map Name Int) (f t)
     where
         f :: (Member (State (M.Map Name Int)) r) => Mono Name -> Env r MonoType
-        f (TConst c) = return $ TConst c
         f (TVar n) = do
             state <- get
             case M.lookup n state of
@@ -207,14 +214,13 @@ inferTypeE (LFixP t e) =
 
             Let v s -> do
                 LFixP t v <- inferTypeE v
-                t <- find t
+                t <- findDeep t
                 t' <- partialBind t
                 s@(Scope _ e) <- inferScope t' s
                 return $ LFixP (label e) (Let (LFixP t v) s)
 
           inferScope :: Type -> Scope DBT.Expr -> Env r (Scope TypedExpr)
-          inferScope t (Scope n e) = Scope n <$> localPush t (inferTypeE e)
-
+          inferScope t = traverse (localPush t . inferTypeE)
 
 inferType :: C.Context -> DBT.Expr -> ([UnificationError], TypedExpr)
 inferType ctx e = run $
@@ -223,10 +229,12 @@ inferType ctx e = run $
     evalState ([] :: Stack Type) $
     evalState (UF.empty :: UF.UnionFind MonoType) $
     runWriter (:) ([] :: [UnificationError]) $ do
-        LFixP t e <- inferTypeE e
-        t <- find t
-        let e' = LFixP t e
+        -- LFixP t e <- inferTypeE e
+        -- t <- find t
+        -- let e' = LFixP t e
+        -- trace uf $ return e'
 
+        e <- inferTypeE e
+        -- e <- traverse findDeep e
         (uf :: UF.UnionFind MonoType) <- get
-        -- trace uf $ traverse findP e'
-        trace uf $ return e'
+        trace uf $ return e

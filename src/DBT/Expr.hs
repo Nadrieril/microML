@@ -33,16 +33,16 @@ data AbstractExpr v a =
     | Fix (Scope a)
     | Let a (Scope a)
     | Ap a a
-    deriving (Functor)
+    deriving (Functor, Foldable, Traversable)
 
 data Scope e = Scope Name e
-    deriving (Functor)
+    deriving (Functor, Foldable, Traversable)
 
 pattern SFun e <- Fun (Scope _ e)
 pattern SFix e <- Fix (Scope _ e)
 pattern SLet v e <- Let v (Scope _ e)
 
-type LabelledExp l v = LFixP l (AbstractExpr v)
+type LabelledExp l v = LFixP (AbstractExpr v) l
 
 type Expr = LabelledExp (Maybe (Mono Name)) Id
 type TypedExpr = LabelledExp MonoType Id

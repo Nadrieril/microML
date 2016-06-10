@@ -35,4 +35,5 @@ instance Read Value where
                       ++ [(I i, s) | (i, s) <- reads r])
 
 
-data LFixP l f = LFixP { label :: l, expr :: f (LFixP l f) }
+data LFixP f l = LFixP { label :: l, expr :: f (LFixP f l) }
+    deriving (Functor, Foldable, Traversable)

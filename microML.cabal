@@ -28,6 +28,7 @@ executable microml
 
     extensions:
         DeriveFunctor
+        DeriveTraversable
         LambdaCase
         RecordWildCards
         ScopedTypeVariables

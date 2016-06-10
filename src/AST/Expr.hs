@@ -26,7 +26,7 @@ data AbstractExpr v a =
     | Fun v a
     | Wrap a
 
-type LabelledExp l v = LFixP l (AbstractExpr v)
+type LabelledExp l v = LFixP (AbstractExpr v) l
 
 type TypedExpr v = LabelledExp (Maybe (Mono Name)) v
 type UntypedExpr v = AbstractExpr v (TypedExpr v)
