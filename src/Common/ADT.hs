@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Common.ADT where
 
 import Data.Maybe (fromMaybe)
@@ -24,23 +24,23 @@ data Constructor a = Constructor {
     } deriving (Functor)
 
 
-instance Show (ADT Id) where
-    show = show . unBindTypeVars
+instance PrettyPrint (ADT Id) where
+    pprint = pprint . unBindTypeVars
 
-instance Show (ADT Name) where
-    show (ADT name params constructors _) =
-        let paramString = concatMap ((' ':) . show) params in
-        let constructorsString = intercalate " | " $ map show constructors in
-        printf "data %s%s = %s" (show name) paramString constructorsString
+instance PrettyPrint (ADT Name) where
+    pprint (ADT name params constructors _) =
+        let paramString = concatMap ((' ':) . pprint) params in
+        let constructorsString = intercalate " | " $ map pprint constructors in
+        printf "data %s%s = %s" (pprint name) paramString constructorsString
 
-instance Show (Constructor Name) where
-    show (Constructor n p) =
-        let paramString = concatMap ((' ':) . show) p in
-        printf "%s%s" (show n) paramString
+instance PrettyPrint (Constructor Name) where
+    pprint (Constructor n p) =
+        let paramString = concatMap ((' ':) . pprint) p in
+        printf "%s%s" (pprint n) paramString
 
 
 deconstructorName :: ADT a -> Name
-deconstructorName ADT{..} = fromMaybe (Name ("un" ++ show adtName)) deconstructor
+deconstructorName ADT{..} = fromMaybe ("un" ++ adtName) deconstructor
 
 
 bindTypeVars :: ADT Name -> ADT Id

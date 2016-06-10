@@ -13,6 +13,7 @@ import DBT.Infer (inferType)
 
 import qualified ASM.Instr as ASM
 import qualified ASM.Eval as ASM
+import Common.Expr (pprint)
 import Common.Context (contextFromADTs)
 
 
@@ -29,7 +30,7 @@ processFile showTyped file = do
     (errors, typed) <- evalerr "Type error" $ inferType ctx dbt
 
     when showTyped $ do
-        print typed
+        putStrLn $ let ?toplevel = True in pprint typed
         putStrLn ""
 
     unless (null errors) $

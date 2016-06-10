@@ -24,7 +24,7 @@ import Control.Monad (zipWithM)
 import Text.Printf (printf)
 
 
-import Common.Expr (Name(..))
+import Common.Expr (Name, PrettyPrint(..))
 
 
 infixr 4 :->
@@ -34,10 +34,10 @@ type TId = Int
 pattern TConst n <- TProduct n [] where
         TConst n = TProduct n []
 
-pattern TBool <- Name "Bool" where
-        TBool = Name "Bool"
-pattern TInt <- Name "Int" where
-        TInt = Name "Int"
+pattern TBool <- "Bool" where
+        TBool = "Bool"
+pattern TInt <- "Int" where
+        TInt = "Int"
 
 data Mono a =
       TVar a
@@ -53,23 +53,26 @@ type Type = Poly TId
 type MonoType = Mono TId
 
 
-instance Show (Mono TId) where
-    show = show . calcVarName
+instance PrettyPrint (Mono TId) where
+    pprint = pprint . calcVarName
 
-instance Show (Mono Name) where
-    show (TConst t) = show t
-    show (TVar v) = printf "%s" (show v)
-    show t@(_ :-> _) = printf "(%s)" (intercalate " -> " $ map show $ foldarrow t)
+instance PrettyPrint (Mono Name) where
+    pprint (TConst t) = pprint t
+    pprint (TVar v) = printf "%s" (pprint v)
+    pprint t@(_ :-> _) = printf "(%s)" (intercalate " -> " $ map pprint $ foldarrow t)
         where
             foldarrow (t1 :-> t2) = t1:foldarrow t2
             foldarrow x = [x]
-    show (TTuple t1 t2) = printf "(%s, %s)" (show t1) (show t2)
-    show (TProduct n l) = printf "%s%s" (show n) (concatMap ((' ':) . show) l)
+    pprint (TTuple t1 t2) = printf "(%s, %s)" (pprint t1) (pprint t2)
+    pprint (TProduct n l) = printf "%s%s" (pprint n) (concatMap ((' ':) . pprint) l)
+
+instance Show MonoType where
+    show = let ?toplevel = False in pprint
 
 
 calcVarName :: Mono TId -> Mono Name
 calcVarName t =
-    let varNames = Name . (:[]) <$> ['a'..] in
+    let varNames = (:[]) <$> ['a'..] in
     let freeVars = IS.toList $ free $ TMono t in
     let m = M.fromList $ zip freeVars varNames in
     fmap (m M.!) t
@@ -79,10 +82,10 @@ instance Hashable a => Hashable (Mono a)
 instance Hashable a => Hashable (Poly a)
 
 
-pattern TTuple x y <- (TProduct (Name ",") [x, y]) where
-        TTuple x y = TProduct (Name ",") [x, y]
-pattern x :-> y <- (TProduct (Name "->") [x, y]) where
-        x :-> y = TProduct (Name "->") [x, y]
+pattern TTuple x y <- (TProduct "," [x, y]) where
+        TTuple x y = TProduct "," [x, y]
+pattern x :-> y <- (TProduct "->" [x, y]) where
+        x :-> y = TProduct "->" [x, y]
 
 
 free :: Type -> IS.IntSet

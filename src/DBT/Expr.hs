@@ -15,8 +15,9 @@ module DBT.Expr
 import Data.List (elemIndex)
 import Data.Maybe (fromJust)
 import Safe (atMay)
-import Control.Monad.State (State, get, evalState)
 import Control.Monad (forM)
+import Control.Monad.State (State, get, evalState)
+import Control.Arrow (first)
 import Text.Printf (printf)
 
 import Utils (Stack, withPush, withPushAll)
@@ -76,47 +77,32 @@ mapBind f e = evalState (mapBind' f e) []
                         Left n -> Free n
 
 
-instance Show Expr where
-    show (unDebruijn -> LFixP t e) = case t of
-            Nothing -> s
-            Just t -> printf "%s :: %s" s (show t)
-        where s = case e of
-                Bound x -> show x
-                Free x -> show x
-                Const c -> show c
-                Ap (expr -> Ap (expr -> Free o) x) y | isOperator o -> printf "(%s %s %s)" (show x) (show o) (show y)
-                Ap f x -> printf "(%s %s)" (show f) (show x)
-                Let v (Scope x e) -> printf "let %s = %s in\n%s" (show x) (show v) (show e)
-                Match e l -> let patterns :: String = concat [printf "\n| %s -> %s" (show p) (show e) | Scope _ (p, e) <- l]
-                    in printf "match %s with %s end" (show e) patterns
-                If b e1 e2 -> printf "if %s then %s else %s" (show b) (show e1) (show e2)
-                Fun (Scope x e) -> printf "(\\%s -> %s)" (show x) (show e)
-                Fix (Scope x e) -> printf "fix(\\%s -> %s)" (show x) (show e)
-
-instance Show TypedExpr where
-    show (unDebruijn -> LFixP _ e) = case e of
+instance PrettyPrint TypedExpr where
+    pprint (unDebruijn -> LFixP _ e) = case e of
         Bound i -> printf "#%d" i
         Free x -> showIdent x
-        Const c -> show c
-        Fun (Scope n e) -> printf "(\\%s -> %s)" (show n) (show e)
-        Fix (Scope n e) -> printf "fix(\\%s -> %s)" (show n) (show e)
-        Let v (Scope n e) -> let (params, v') = unfoldFun v in
-            let paramStr = concatMap ((' ':) . show) params in
-            printf "/// %s :: %s\nlet %s%s = %s in\n%s" (showIdent n) (show $ label v) (showIdent n) paramStr (show $ untype v') (show e)
-        Match e l -> let patterns :: String = concat [printf "\n| %s -> %s" (show p) (show e) | Scope _ (p, e) <- l]
-            in printf "match %s with %s end" (show e) patterns
-        Ap (expr -> Ap (expr -> Free o) x) y | isOperator o -> printf "(%s %s %s)" (show x) (show o) (show y)
-        Ap f x@(expr -> Ap _ _) -> printf "%s (%s)" (show f) (show x)
-        Ap f x -> printf "%s %s" (show f) (show x)
-        If b e1 e2 -> printf "if %s then %s else %s" (show b) (show e1) (show e2)
+        Const c -> pprint c
+        Fun (Scope n e) -> printf "(\\%s -> %s)" (pprint n) (pprint e)
+        Fix (Scope n e) -> printf "fix(\\%s -> %s)" (pprint n) (pprint e)
+        Let v (Scope n e) ->
+            let typeAnnotation = printf "/// %s :: %s\n" (showIdent n) (pprint $ label v) in
+            let (params, v') = unfoldFun v in
+            let paramStr = concatMap ((' ':) . pprint) params in
+            let expr = printf "let %s%s = %s in\n%s" (showIdent n) paramStr (let ?toplevel = False in pprint v') (pprint e) in
+            (if ?toplevel then typeAnnotation else "") ++ expr
+        Match e l -> let patterns :: String = concat [printf "\n| %s -> %s" (pprint p) (pprint e) | Scope _ (p, e) <- l]
+            in printf "match %s with %s end" (pprint e) patterns
+        Ap (expr -> Ap (expr -> Free o) x) y | isOperator o -> printf "(%s %s %s)" (pprint x) (pprint o) (pprint y)
+        Ap f x@(expr -> Ap _ _) -> printf "%s (%s)" (pprint f) (pprint x)
+        Ap f x -> printf "%s %s" (pprint f) (pprint x)
+        If b e1 e2 -> printf "if %s then %s else %s" (pprint b) (pprint e1) (pprint e2)
         where
-            showIdent n = (if isOperator n then printf "(%s)" else id) (show n)
-            unfoldFun (expr -> Fun (Scope n e)) =
-                let (l, e') = unfoldFun e in
-                (n:l, e')
+            showIdent n = if isOperator n then printf "(%s)" n else n
+            unfoldFun (expr -> Fun (Scope n e)) = first (n:) $ unfoldFun e
             unfoldFun x = ([], x)
-            untype :: TypedExpr -> Expr
-            untype (LFixP _ e) = LFixP Nothing $ fmap untype e
+
+instance Show TypedExpr where
+    show = let ?toplevel = False in pprint
 
 
 unDebruijn :: LabelledExp l Id -> LabelledExp l Id

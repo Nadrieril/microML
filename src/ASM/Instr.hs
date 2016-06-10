@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, FlexibleContexts, OverloadedStrings #-}
+{-# LANGUAGE RankNTypes, FlexibleContexts #-}
 -- ASM = Abstract Stack Machine
 module ASM.Instr where
 
@@ -8,7 +8,7 @@ import Control.Eff.Writer.Strict (Writer, tell, runWriter)
 import Control.Eff.Reader.Strict (Reader, ask, runReader)
 import Text.Printf (printf)
 
-import Common.Expr (Id, Name(..), Value(..), LFixP(..))
+import Common.Expr (Id, Name, Value(..), LFixP(..))
 import qualified DBT.Expr as DBT
 import qualified Common.ADT as ADT
 import qualified Common.Context as C

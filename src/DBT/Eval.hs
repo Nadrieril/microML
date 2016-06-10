@@ -9,6 +9,7 @@ module DBT.Eval
 import qualified Data.Map as M
 import Data.Monoid ((<>))
 import Data.Foldable (foldrM)
+import Data.List (intercalate)
 import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, get, put, modify, evalState)
 import Control.Eff.Reader.Strict (Reader, ask, runReader)
@@ -32,17 +33,19 @@ data Val =
   | VConstructor (ADT Id) Int Int [Val]
   | VDeconstructor (ADT Id) Int [Val]
 
-instance Show Val where
-    show (Val x) = printf "Val %s" (show x)
-    show (VFun _ e) = printf "VFun(\\%s)" (show e)
-    show (VRecFun _ e) = printf "VRecFun(\\%s)" (show e)
-    show VSysCall{} = printf "VSysCall"
-    show (VConstructor adt n _ l) = let name = constructorName (adtConstructors adt !! n) in
+instance PrettyPrint Val where
+    pprint (Val x) = printf "Val %s" (pprint x)
+    pprint (VFun _ e) = printf "VFun(\\%s)" (pprint e)
+    pprint (VRecFun _ e) = printf "VRecFun(\\%s)" (pprint e)
+    pprint VSysCall{} = printf "VSysCall"
+    pprint (VConstructor adt n _ l) = let name = constructorName (adtConstructors adt !! n) in
         case reverse l of
-            [x, y] | isOperator name -> printf "(%s %s %s)" (show x) (show name) (show y)
-            l -> printf "%s%s" (show name) (show l)
-    show (VDeconstructor adt _ _) = printf "%s.." (show $ deconstructorName adt)
+            [x, y] | isOperator name -> printf "(%s %s %s)" (pprint x) (pprint name) (pprint y)
+            l -> printf "%s[%s]" (pprint name) (intercalate ", " (map pprint l))
+    pprint (VDeconstructor adt _ _) = printf "%s.." (pprint $ deconstructorName adt)
 
+instance Show Val where
+    show =let ?toplevel = False in pprint
 
 fromContext :: C.ContextValue -> Val
 fromContext = \case

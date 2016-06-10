@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, RankNTypes, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, RankNTypes #-}
 module AST.Parse (isOperator, parseML) where
 
 import Data.Function (on)
@@ -36,8 +36,8 @@ languageDef =
 
 lexer = Token.makeTokenParser languageDef
 
-ident      = Name <$> Token.identifier lexer
-operator   = Name <$> Token.operator lexer
+ident      = Token.identifier lexer
+operator   = Token.operator lexer
 reserved   = Token.reserved   lexer
 reservedOp = Token.reservedOp lexer
 parens     = Token.parens     lexer
@@ -45,7 +45,7 @@ natural    = Token.natural    lexer
 whiteSpace = Token.whiteSpace lexer
 
 isOperator :: Name -> Bool
-isOperator (Name n) = isRight $ parse operator "" n
+isOperator = isRight . parse operator ""
 
 identOrOp :: Parser Name
 identOrOp = ident <|> parens operator
@@ -68,7 +68,7 @@ untyped :: UntypedExpr a -> TypedExpr a
 untyped = LFixP Nothing
 
 typeIdent :: Parser Name
-typeIdent = Name <$> do
+typeIdent = do
         c <- upper
         cs <- many (alphaNum <|> oneOf "_'")
         whiteSpace
@@ -126,7 +126,7 @@ operators = [ [neg]
             , [l ","]
             ]
     where
-        f (Name c) v = reservedOp c >> return v
+        f c v = reservedOp c >> return v
         neg = Prefix (f "-" (Negate . untyped))
         inf = Infix . fmap (\o -> AST.Infix o `on` untyped)
         l o = inf (f o o) AssocLeft

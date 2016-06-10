@@ -4,6 +4,7 @@ module ASM.Eval where
 import Data.Proxy (Proxy(..))
 import qualified Data.Map as M
 import qualified Debug.Trace as T
+import Data.List (intercalate)
 import Control.Monad (replicateM_, void, unless, forM_, when)
 import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, evalState)
@@ -13,7 +14,7 @@ import Text.Printf (printf)
 
 -- import qualified Utils (trace)
 import AST.Parse (isOperator)
-import Common.Expr (Name(..))
+import Common.Expr (Name, PrettyPrint(..))
 import qualified Common.Expr as Expr (Value(..))
 import qualified Common.StdLib as Std
 import qualified Common.ADT as ADT
@@ -31,16 +32,18 @@ data Value =
     | Deconstructor Name Int [Value]
     | PartialSysCall (Expr.Value -> C.ContextValue)
 
-instance Show Value where
-    show (Value x) = printf "Value %s" (show x)
-    show (Closure _) = printf "Closure"
-    show (RecClosure _) = printf "RecClosure"
-    show (Constructor name _ _ l) = case reverse l of
-            [x, y] | isOperator name -> printf "(%s %s %s)" (show x) (show name) (show y)
-            l -> printf "%s%s" (show name) (show l)
-    show (Deconstructor name _ _) = printf "un%s[..]" (show name)
-    show (PartialSysCall _) = printf "PartialSysCall"
+instance PrettyPrint Value where
+    pprint (Value x) = printf "Value %s" (pprint x)
+    pprint (Closure _) = printf "Closure"
+    pprint (RecClosure _) = printf "RecClosure"
+    pprint (Constructor name _ _ l) = case reverse l of
+            [x, y] | isOperator name -> printf "(%s %s %s)" (pprint x) (pprint name) (pprint y)
+            l -> printf "%s[%s]" (pprint name) (intercalate ", " (map pprint l))
+    pprint (Deconstructor name _ _) = printf "un%s[..]" (pprint name)
+    pprint (PartialSysCall _) = printf "PartialSysCall"
 
+instance Show Value where
+    show = let ?toplevel = False in pprint
 
 fromContext :: C.ContextValue -> Value
 fromContext = \case

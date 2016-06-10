@@ -30,6 +30,7 @@ executable microml
         DeriveFunctor
         DeriveTraversable
         LambdaCase
+        ImplicitParams
         RecordWildCards
         ScopedTypeVariables
         ViewPatterns

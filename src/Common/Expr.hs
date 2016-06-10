@@ -1,24 +1,24 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, PatternSynonyms #-}
+{-# LANGUAGE PatternSynonyms #-}
 module Common.Expr where
 
-import Data.Hashable (Hashable)
-import Data.String (IsString(..))
-import Control.Arrow (first)
+
+class PrettyPrint a where
+    pprint :: (?toplevel :: Bool) => a -> String
+
+instance PrettyPrint String where
+    pprint = id
 
 
 type Id = Int
 
-newtype Name = Name String
-    deriving (Eq, Ord, Hashable)
+instance PrettyPrint Id where
+    pprint = show
 
-instance Show Name where
-  show (Name o) = o
 
-instance IsString Name where
-  fromString = Name
 
-instance Read Name where
-    readsPrec _ r = first Name <$> readParen False lex r
+
+
+type Name = String
 
 
 data Value = B Bool | I Integer
@@ -27,6 +27,9 @@ data Value = B Bool | I Integer
 instance Show Value where
   show (B x) = show x
   show (I x) = show x
+
+instance PrettyPrint Value where
+    pprint = show
 
 instance Read Value where
     readsPrec _ = readParen False
