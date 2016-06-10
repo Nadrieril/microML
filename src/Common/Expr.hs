@@ -1,4 +1,3 @@
-{-# LANGUAGE PatternSynonyms #-}
 module Common.Expr where
 
 

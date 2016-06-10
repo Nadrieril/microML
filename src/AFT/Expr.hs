@@ -1,5 +1,5 @@
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, PatternSynonyms #-}
--- ASM = Abstract Functional Tree
+{-# LANGUAGE PatternSynonyms #-}
+-- AFT = Abstract Functional Tree
 module AFT.Expr
     ( Expr
     , AbstractExpr(..)

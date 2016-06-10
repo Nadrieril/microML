@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, UndecidableInstances, RankNTypes #-}
+{-# LANGUAGE FlexibleContexts, RankNTypes #-}
 module DBT.Eval
     ( Env
     , Val(..)

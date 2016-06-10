@@ -1,4 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, PatternSynonyms, OverloadedStrings #-}
 module Common.StdLib
     ( globalContext
     )
