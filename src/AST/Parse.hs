@@ -13,6 +13,7 @@ import Common.Expr hiding (expr)
 import AST.Expr hiding (Infix)
 import qualified AST.Expr as AST
 import Common.ADT
+import Common.Pattern
 import Common.Type
 
 -------------------------------------------------------------------------------
@@ -25,6 +26,7 @@ languageDef =
         , Token.reservedNames   = [ "if" , "then" , "else"
                                   , "let", "rec", "in", "fun"
                                   , "data", "true" , "false"
+                                  , "match", "with", "end"
                                   , "Int", "Bool"
                                   ]
         , Token.reservedOpNames = ["::", "->", "=", "|" ]
@@ -137,6 +139,27 @@ operators = [ [neg]
                 else return x
 
 -------------------------------------------------------------------------------
+--- Pattern-matching ---
+pattrn :: Parser (Pattern Name, Expr)
+pattrn = do
+    pat <- Pattern <$> typeIdent <*> many ident
+    reservedOp "->"
+    e <- expr
+    return (pat, e)
+
+matchwith :: Parser (UntypedExpr Name)
+matchwith = do
+    reserved "match"
+    e <- expr
+    reserved "with"
+    optional $ reservedOp "|"
+    patterns <- sepBy pattrn (reservedOp "|")
+    reserved "end"
+    return $ Match e patterns
+    <?> "match expression"
+
+
+-------------------------------------------------------------------------------
 --- Expressions ---
 variable :: Parser (UntypedExpr Name)
 variable = Var <$> identOrOp
@@ -167,6 +190,7 @@ atom :: Parser (UntypedExpr Name)
 atom =  try variable
     <|> (Wrap <$> parens expr)
     <|> letin
+    <|> matchwith
     <|> ifthenelse
     <|> lambda
     <|> boolean

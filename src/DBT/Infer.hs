@@ -9,7 +9,7 @@ import Data.Maybe
 import Data.Monoid ((<>))
 import qualified Data.Map as M
 import qualified Data.IntSet as IS
-import Control.Monad (zipWithM_, forM)
+import Control.Monad (zipWithM_, forM, forM_)
 import Control.Arrow (first)
 import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, get, put, modify, evalState)
@@ -22,7 +22,9 @@ import Utils (Stack)
 import qualified Utils (trace)
 import qualified Utils.UnionFind as UF
 import qualified DBT.Expr as DBT
+import Common.ADT
 import Common.Expr
+import Common.Pattern
 import Common.Type
 import qualified Common.Context as C
 import Common.StdLib (globalContext)
@@ -60,10 +62,13 @@ state f = do
     return x
 
 localPush :: Type -> Eff r a -> Env r a
-localPush x m = do
-    modify (x:)
+localPush x = localPushAll [x]
+
+localPushAll :: [Type] -> Eff r a -> Env r a
+localPushAll l m = do
+    modify (l++)
     ret <- m
-    modify (tail :: Stack Type -> Stack Type)
+    modify (drop (length l) :: Stack Type -> Stack Type)
     return ret
 
 
@@ -169,7 +174,8 @@ inferTypeE (LFixP t e) =
             unify e t t'
             return $ LFixP t e'
 
-    where infE = case e of
+    where
+        infE = case e of
             Const c ->
                 return $ LFixP (typeof c) (Const c)
 
@@ -219,8 +225,31 @@ inferTypeE (LFixP t e) =
                 s@(Scope _ e) <- inferScope t' s
                 return $ LFixP (label e) (Let (LFixP t v) s)
 
-          inferScope :: Type -> Scope DBT.Expr -> Env r (Scope TypedExpr)
-          inferScope t = traverse (localPush t . inferTypeE)
+            Match e l -> do
+                e <- inferTypeE e
+                t <- TVar <$> freshV
+                l <- forM l $ \(Scope n (p, e')) -> do
+                    bindersTVars <- forM n $ \_ -> TVar <$> freshV
+                    pt <- inferPattern e bindersTVars p
+                    unify e (label e) pt
+                    e' <- localPushAll (TMono <$> bindersTVars) $ inferTypeE e'
+                    unify e' t (label e')
+                    return $ Scope n (p, e')
+                return $ LFixP t $ Match e l
+
+
+        inferPattern :: TypedExpr -> [MonoType] -> Pattern Id -> Env r MonoType
+        inferPattern e bindersTVars p@(Pattern _ binders) = do
+            ctx <- ask
+            let (adt, ctor) = getPatternADT ctx p
+            adtTVars <- forM (adtParams adt) $ const freshV
+            let ctorTypes = map (fmap (adtTVars !!)) $ constructorParams ctor
+            forM_ (zip binders [0..]) $ \(i, j) -> unify e (bindersTVars !! i) (ctorTypes !! j)
+            return $ TProduct (adtName adt) (TVar <$> adtTVars)
+
+
+        inferScope :: Type -> Scope Name DBT.Expr -> Env r (Scope Name TypedExpr)
+        inferScope t = traverse (localPush t . inferTypeE)
 
 inferType :: C.Context -> DBT.Expr -> ([UnificationError], TypedExpr)
 inferType ctx e = run $

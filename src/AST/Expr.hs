@@ -11,6 +11,7 @@ module AST.Expr
 
 import Common.Expr
 import Common.ADT
+import Common.Pattern
 import Common.Type
 
 
@@ -22,6 +23,7 @@ data AbstractExpr v a =
     | Ap a a
     | Let v a a
     | LetR v a a
+    | Match a [(Pattern Name, a)]
     | If a a a
     | Fun v a
     | Wrap a

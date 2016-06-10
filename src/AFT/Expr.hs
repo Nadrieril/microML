@@ -11,6 +11,7 @@ import Data.Maybe (isJust)
 import Control.Monad (mplus)
 
 import Common.Expr
+import Common.Pattern
 import Common.Type
 import qualified AST.Expr as AST
 
@@ -22,6 +23,7 @@ data AbstractExpr v a =
     | Fix (Scope v a)
     | Ap a a
     | Let a (Scope v a)
+    | Match a [Scope (Pattern v) a]
     | If a a a
 
 data Scope v e = Scope v e
@@ -55,5 +57,6 @@ fromAST (LFixP t e) = LFixP t $
         AST.Infix o e1 e2 -> Ap (untyped $ Ap (untyped $ Var o) (fromAST e1)) (fromAST e2)
         AST.Let x v e -> SLet x (fromAST v) (fromAST e)
         AST.LetR f v e -> SLet f (untyped $ SFix f (fromAST v)) (fromAST e)
+        AST.Match e l -> Match (fromAST e) [ Scope pat (fromAST e) | (pat, e) <- l ]
         AST.Wrap _ -> error "impossible"
     where untyped = LFixP Nothing
