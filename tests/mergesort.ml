@@ -8,36 +8,29 @@ let fst = unPair const in
 let snd = unPair (const id) in
 let (:) = Cons in
 
-let rec length = (fun l -> unList 0 (fun _ -> fun q -> 1 + length q) l) :: List a -> Int in
+let rec length = fun l -> match l with
+    Nil -> 0
+  | Cons x q -> 1 + length q
+end in
 
-let rec split = fun l ->
-    unList
-      (Nil, Nil)
-      (fun x -> fun q ->
-        unList
-          (x:Nil,Nil)
-          (fun y -> fun r ->
-            let z = split r in
-            (x:fst z, y:snd z)
-          )
-          q
-      )
-      l in
+let rec split = fun l -> match l with
+  | Nil -> (Nil, Nil)
+  | Cons x q -> match q with
+    | Nil -> (x:Nil, Nil)
+    | Cons y r -> let z = split r in (x:fst z, y:snd z)
+  end
+end in
 
-let rec merge = fun l1 -> fun l2 ->
-    unList
-      l2
-      (fun x1 -> fun q1 ->
-        unList
-          l1
-          (fun x2 -> fun q2 ->
-            if x1 <= x2
-              then x1 : merge q1 l2
-              else x2 : merge l1 q2
-          )
-          l2
-      )
-      l1 in
+let rec merge = fun l1 -> fun l2 -> match l1 with
+  | Nil -> l2
+  | Cons x1 q1 -> match l2 with
+    | Nil -> l1
+    | Cons x2 q2 ->
+        if x1 <= x2
+          then x1 : merge q1 l2
+          else x2 : merge l1 q2
+  end
+end in
 
 let rec mergeSort = fun l ->
     if length l <= 1

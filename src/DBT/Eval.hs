@@ -8,7 +8,7 @@ module DBT.Eval
 
 import qualified Data.Map as M
 import Data.Monoid ((<>))
-import Data.Foldable (foldrM)
+import Data.Foldable (foldrM, asum)
 import Data.List (intercalate)
 import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, get, put, modify, evalState)
@@ -16,8 +16,9 @@ import Control.Eff.Reader.Strict (Reader, ask, runReader)
 import Text.Printf (printf)
 
 import AST.Parse (isOperator)
-import Common.Expr
 import Common.ADT
+import Common.Expr
+import Common.Pattern
 import qualified Common.Context as C
 import Common.StdLib (globalContext)
 import DBT.Expr
@@ -66,6 +67,8 @@ type Eval r a = (
 
 push :: Val -> Eval r ()
 push x = modify (x:)
+pushAll :: [Val] -> Eval r ()
+pushAll l = modify (l++)
 
 local :: Eval r b -> Eval r b
 local m = do
@@ -127,6 +130,18 @@ evalE (expr -> Ap f x) = do
     vf <- evalE f
     vx <- evalE x
     evalAp vf vx
+evalE ex@(expr -> Match e l) = do
+    ve <- evalE e
+    (vals, e) <- case asum [ (,e) <$> matchVal ve p | Scope _ (p, e) <- l ] of
+        Nothing -> error $ printf "Error: non-exhaustive pattern-matching in %s" (show ex)
+        Just x -> return x
+    local $ do
+        pushAll vals
+        evalE e
+    where
+        matchVal :: Val -> Pattern BoundVar -> Maybe [Val]
+        matchVal (VConstructor (adtConstructors -> ctors) i 0 l) (Pattern n _) | n == constructorName (ctors !! i) = Just $ reverse l
+        matchVal _ _ = Nothing
 evalE _ = error "impossible"
 
 
