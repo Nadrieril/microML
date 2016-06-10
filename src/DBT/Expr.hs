@@ -62,9 +62,11 @@ instance PrettyPrint TypedExpr where
         Fix (Scope n e) -> printf "fix(\\%s -> %s)" (pprint n) (pprint e)
         Let v (Scope n e) ->
             let typeAnnotation = printf "/// %s :: %s\n" (showIdent n) (pprint $ label v) in
-            let (params, v') = unfoldFun v in
+            let (isRec, v') = case v of { LFixP _ (Fix (Scope n' x)) | n == n' -> (True, x) ; _ -> (False, v) } in
+            let rec = if isRec then "rec " else "" in
+            let (params, v'') = unfoldFun v' in
             let paramStr = concatMap ((' ':) . pprint) params in
-            let expr = printf "let %s%s = %s in\n%s" (showIdent n) paramStr (let ?toplevel = False in pprint v') (pprint e) in
+            let expr = printf "let %s%s%s = %s in\n%s" rec (showIdent n) paramStr (let ?toplevel = False in pprint v'') (pprint e) in
             (if ?toplevel then typeAnnotation else "") ++ expr
         Match e l -> let patterns :: String = concat [printf "\n| %s -> %s" (pprint p) (pprint e) | Scope _ (p, e) <- l]
             in printf "match %s with %s end" (pprint e) patterns
