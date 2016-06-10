@@ -179,10 +179,10 @@ inferTypeE (LFixP t e) =
             Const c ->
                 return $ LFixP (typeof c) (Const c)
 
-            Bound x -> do
+            Bound n x -> do
                 t <- getType x
                 s <- inst t
-                return $ LFixP s (Bound x)
+                return $ LFixP s (Bound n x)
 
             Free x -> do
                 ctx <- ask
@@ -238,13 +238,13 @@ inferTypeE (LFixP t e) =
                 return $ LFixP t $ Match e l
 
 
-        inferPattern :: TypedExpr -> [MonoType] -> Pattern Id -> Env r MonoType
+        inferPattern :: TypedExpr -> [MonoType] -> Pattern BoundVar -> Env r MonoType
         inferPattern e bindersTVars p@(Pattern _ binders) = do
             ctx <- ask
             let (adt, ctor) = getPatternADT ctx p
             adtTVars <- forM (adtParams adt) $ const freshV
             let ctorTypes = map (fmap (adtTVars !!)) $ constructorParams ctor
-            forM_ (zip binders [0..]) $ \(i, j) -> unify e (bindersTVars !! i) (ctorTypes !! j)
+            forM_ (zip binders [0..]) $ \(BoundVar _ i, j) -> unify e (bindersTVars !! i) (ctorTypes !! j)
             return $ TProduct (adtName adt) (TVar <$> adtTVars)
 
 

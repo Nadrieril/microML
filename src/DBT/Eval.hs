@@ -100,7 +100,7 @@ evalAp (VDeconstructor adt i p) x = return $ VDeconstructor adt (i-1) (x:p)
 evalAp v _ = error $ printf "Error: attempting to evaluate %s as a function" (show v)
 
 evalE :: TypedExpr -> Eval r Val
-evalE (expr -> Bound i) = (!! i) <$> get
+evalE (expr -> Bound _ i) = (!! i) <$> get
 evalE (expr -> Free g) = do
     ctx <- ask
     return $ getFree ctx g

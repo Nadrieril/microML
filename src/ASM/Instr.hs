@@ -55,7 +55,7 @@ compileE :: DBT.TypedExpr -> Env r ()
 compileE (expr -> e) = case e of
     DBT.Const c -> tell $ Push c
 
-    DBT.Bound x -> tell $ Access x
+    DBT.Bound _ x -> tell $ Access x
 
     DBT.Free x -> do
         ctx <- ask

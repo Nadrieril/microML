@@ -14,7 +14,6 @@ module DBT.Expr
 
 import Data.List (elemIndex)
 import Data.Maybe (fromJust)
-import Safe (atMay)
 import Control.Monad (forM)
 import Control.Monad.State (State, get, evalState)
 import Control.Arrow (first)
@@ -28,15 +27,15 @@ import Common.Type
 import Common.Context
 import qualified AFT.Expr as AFT
 
-data AbstractExpr v a =
-      Bound v
+data AbstractExpr a =
+      Bound Name Id
     | Free Name
     | Const Value
     | If a a a
     | Fun (Scope Name a)
     | Fix (Scope Name a)
     | Let a (Scope Name a)
-    | Match a [Scope [Name] (Pattern Id, a)]
+    | Match a [Scope [Name] (Pattern BoundVar, a)]
     | Ap a a
     deriving (Functor, Foldable, Traversable)
 
@@ -47,39 +46,16 @@ pattern SFun e <- Fun (Scope _ e)
 pattern SFix e <- Fix (Scope _ e)
 pattern SLet v e <- Let v (Scope _ e)
 
-type LabelledExp l v = LFixP (AbstractExpr v) l
+type LabelledExp l = LFixP AbstractExpr l
 
-type Expr = LabelledExp (Maybe (Mono Name)) Id
-type TypedExpr = LabelledExp MonoType Id
+type Expr = LabelledExp (Maybe (Mono Name))
+type TypedExpr = LabelledExp MonoType
 
 type Program = (Context, TypedExpr)
 
-
-mapBind :: (Stack Name -> Either Name a -> Either Name a) -> LabelledExp l a -> LabelledExp l a
-mapBind f e = evalState (mapBind' f e) []
-    where
-        mapBind' :: (Stack Name -> Either Name a -> Either Name a) -> LabelledExp l a -> State (Stack Name) (LabelledExp l a)
-        mapBind' f (LFixP t e) = LFixP t <$> case e of
-            Bound i -> get >>= auxf (Right i)
-            Free n -> get >>= auxf (Left n)
-            Const c -> return $ Const c
-            If b e1 e2 -> If <$> mapBind' f b <*> mapBind' f e1 <*> mapBind' f e2
-            Ap g x -> Ap <$> mapBind' f g <*> mapBind' f x
-            Fun s -> Fun <$> auxScope s
-            Fix s -> Fix <$> auxScope s
-            Let v s -> Let <$> mapBind' f v <*> auxScope s
-            Match e l -> Match <$> mapBind' f e <*> forM l auxPatScope
-            where
-                auxScope s@(Scope n _) = traverse (withPush n . mapBind' f) s
-                auxPatScope s@(Scope n _) = traverse (traverse (withPushAll n . mapBind' f)) s
-                auxf x s = return $ case f s x of
-                        Right i -> Bound i
-                        Left n -> Free n
-
-
 instance PrettyPrint TypedExpr where
-    pprint (unDebruijn -> LFixP _ e) = case e of
-        Bound i -> printf "#%d" i
+    pprint (LFixP _ e) = case e of
+        Bound n _ -> showIdent n
         Free x -> showIdent x
         Const c -> pprint c
         Fun (Scope n e) -> printf "(\\%s -> %s)" (pprint n) (pprint e)
@@ -105,19 +81,29 @@ instance Show TypedExpr where
     show = let ?toplevel = False in pprint
 
 
-unDebruijn :: LabelledExp l Id -> LabelledExp l Id
-unDebruijn = mapBind $ \s -> \case
-    Right i -> case s `atMay` i of
-        Just n -> Left n
-        Nothing -> Right i
-    Left n -> Left n
+deBruijn :: LabelledExp l -> LabelledExp l
+deBruijn e = evalState (deBruijnS e) []
+    where
+        deBruijnS :: LabelledExp l -> State (Stack Name) (LabelledExp l)
+        deBruijnS (LFixP t e) = LFixP t <$> case e of
+            Const c -> return $ Const c
+            Bound n i -> return $ Bound n i
+            Free n -> do
+                s <- get
+                return $ case n `elemIndex` s of
+                    Just i -> Bound n i
+                    Nothing -> Free n
+            If b e1 e2 -> If <$> deBruijnS b <*> deBruijnS e1 <*> deBruijnS e2
+            Ap g x -> Ap <$> deBruijnS g <*> deBruijnS x
+            Fun s -> Fun <$> auxScope s
+            Fix s -> Fix <$> auxScope s
+            Let v s -> Let <$> deBruijnS v <*> auxScope s
+            Match e l -> Match <$> deBruijnS e <*> forM l auxPatScope
+            where
+                auxScope s@(Scope n _) = traverse (withPush n . deBruijnS) s
+                auxPatScope s@(Scope n _) = traverse (traverse (withPushAll n . deBruijnS)) s
 
-deBruijn :: LabelledExp l Id -> LabelledExp l Id
-deBruijn = mapBind $ \s -> \case
-    Right i -> Right i
-    Left n -> case n `elemIndex` s of
-                Just i -> Right i
-                Nothing -> Left n
+
 
 fromAFT :: AFT.Expr -> Expr
 fromAFT (LFixP t e) = LFixP t $ case e of
@@ -130,7 +116,7 @@ fromAFT (LFixP t e) = LFixP t $ case e of
     AFT.Let v s -> Let (fromAFT v) (auxScope s)
     AFT.Match e l -> Match (fromAFT e)
         [ let binders = getPatternBinders p in
-            Scope binders (fmap (\x -> fromJust $ x `elemIndex` binders) p, fromAFT e)
+            Scope binders (fmap (\x -> BoundVar x (fromJust $ x `elemIndex` binders)) p, fromAFT e)
         | AFT.Scope p e <- l]
     where auxScope (AFT.Scope n e) = Scope n (fromAFT e)
 

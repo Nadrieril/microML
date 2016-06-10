@@ -1,4 +1,8 @@
+{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 module Common.Expr where
+
+import GHC.Generics (Generic)
+import Data.Hashable (Hashable)
 
 
 class PrettyPrint a where
@@ -14,7 +18,11 @@ instance PrettyPrint Id where
     pprint = show
 
 
+data BoundVar = BoundVar Name Id
+    deriving (Eq, Ord, Generic, Hashable)
 
+instance PrettyPrint BoundVar where
+    pprint (BoundVar n _) = n
 
 
 type Name = String

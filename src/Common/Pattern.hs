@@ -16,11 +16,8 @@ import Common.Expr
 data Pattern a = Pattern Name [a]
     deriving (Functor)
 
-instance PrettyPrint (Pattern Name) where
-    pprint (Pattern n l) = unwords (map pprint $ n:l)
-
-instance PrettyPrint (Pattern Id) where
-    pprint = pprint . fmap (\x -> "#" ++ pprint x)
+instance PrettyPrint a => PrettyPrint (Pattern a) where
+    pprint (Pattern n l) = unwords (n : map pprint l)
 
 
 getPatternBinders :: Pattern a -> [a]

@@ -15,6 +15,7 @@ executable microml
           Common.ADT
           Common.Context
           Common.Expr
+          Common.Pattern
           Common.StdLib
           Common.Type
           AST.Parse
