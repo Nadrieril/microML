@@ -24,7 +24,8 @@ import Control.Monad (zipWithM)
 import Text.Printf (printf)
 
 
-import Common.Expr (Name, PrettyPrint(..))
+import Common.Expr (Name)
+import Utils.PrettyPrint
 
 
 infixr 4 :->

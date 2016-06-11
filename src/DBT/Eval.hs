@@ -22,6 +22,7 @@ import Common.Expr
 import Common.Pattern
 import qualified Common.Context as C
 import Common.StdLib (globalContext)
+import Utils.PrettyPrint
 import DBT.Expr
 
 

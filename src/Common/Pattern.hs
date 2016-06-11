@@ -11,6 +11,7 @@ import qualified Common.ADT as ADT
 import Common.ADT hiding (Constructor)
 import Common.Context
 import Common.Expr
+import Utils.PrettyPrint
 
 
 data Pattern a = PVar a | Pattern Name [Pattern a]

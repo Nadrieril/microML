@@ -9,6 +9,7 @@ executable microml
     hs-source-dirs: ., src
     other-modules:
           Utils
+          Utils.PrettyPrint
           Utils.ProxyStateEff
           Utils.UnionFind
           Utils.Stackable

@@ -9,6 +9,7 @@ import Text.Printf (printf)
 
 import Common.Expr
 import Common.Type
+import Utils.PrettyPrint
 
 
 data ADT a = ADT {

@@ -4,18 +4,10 @@ module Common.Expr where
 import GHC.Generics (Generic)
 import Data.Hashable (Hashable)
 
+import Utils.PrettyPrint
 
-class PrettyPrint a where
-    pprint :: (?toplevel :: Bool) => a -> String
-
-instance PrettyPrint String where
-    pprint = id
-
-
+type Name = String
 type Id = Int
-
-instance PrettyPrint Id where
-    pprint = show
 
 
 data BoundVar = BoundVar Name Id
@@ -23,9 +15,6 @@ data BoundVar = BoundVar Name Id
 
 instance PrettyPrint BoundVar where
     pprint (BoundVar n _) = n
-
-
-type Name = String
 
 
 data Value = B Bool | I Integer

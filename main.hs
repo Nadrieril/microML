@@ -13,7 +13,7 @@ import DBT.Infer (inferType)
 
 import qualified ASM.Instr as ASM
 import qualified ASM.Eval as ASM
-import Common.Expr (pprint)
+import Utils.PrettyPrint (pprint)
 import Common.Context (contextFromADTs)
 
 

@@ -13,13 +13,14 @@ import Text.Printf (printf)
 
 -- import qualified Utils (trace)
 import AST.Parse (isOperator)
-import Common.Expr (Name, PrettyPrint(..))
+import Common.Expr (Name)
 import qualified Common.Expr as Expr (Value(..))
 import qualified Common.StdLib as Std
 import qualified Common.ADT as ADT
 import ASM.Instr (Instr)
 import qualified ASM.Instr as I
 import qualified Common.Context as C
+import Utils.PrettyPrint
 import Utils.ProxyStateEff (get, put)
 import Utils.Stackable
 
