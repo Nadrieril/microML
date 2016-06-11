@@ -144,6 +144,14 @@ evalInstr c = case c of
 
     I.Endlet -> void $ pop env
 
+    I.Branchmatch n i -> do
+        v <- pop valstack
+        case v of
+            Constructor n' _ _ vals | n == n' -> do
+                forM_ vals (push env)
+                replicateM_ i (pop code)
+            _ -> push valstack v
+
     I.Branchneg i -> do
         Value (Expr.B v) <- pop valstack
         unless v $ replicateM_ i (pop code)
@@ -177,7 +185,7 @@ evalE = do
                 else push code I.Return >> evalE
 
         Just c -> do
-            when debug $ T.traceM ("> " ++ show c ++ "\n")
+            when debug $ T.traceM ("\n> " ++ show c ++ "\n")
             evalInstr c
             evalE
 

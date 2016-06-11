@@ -3,6 +3,8 @@
 module ASM.Instr where
 
 import qualified Data.Map as M
+import Control.Monad (forM)
+import Control.Arrow (second)
 import Control.Eff (Member, Eff, run)
 import Control.Eff.Writer.Strict (Writer, tell, runWriter)
 import Control.Eff.Reader.Strict (Reader, ask, runReader)
@@ -12,6 +14,7 @@ import Common.Expr (Id, Name, Value(..), LFixP(..))
 import qualified DBT.Expr as DBT
 import qualified Common.ADT as ADT
 import qualified Common.Context as C
+import Common.Pattern (Pattern(..))
 
 
 data Instr =
@@ -22,8 +25,9 @@ data Instr =
     | Return
     | Let
     | Endlet
-    | Branchneg Id
-    | Branch Id
+    | Branchneg Int
+    | Branchmatch Name Int
+    | Branch Int
     | SysCall Name
     | Constructor Name Int Int
     | Deconstructor Name Int
@@ -69,6 +73,24 @@ compileE (expr -> e) = case e of
         tellall c1
         tell $ Branch (length c2)
         tellall c2
+
+    DBT.Match e l -> do
+        let writeCases [] = ([], 0, [], 0)
+            writeCases ((name, c) : q) =
+                let incr = second . (+) in
+                let lc = length c in
+                let (matches, lmatches, execs, lexecs) = writeCases q in
+                let matches' = (name, lmatches + 1) : map (incr (lc + 1)) matches in
+                let execs' = Branch (lc + lexecs) : (c ++ execs) in
+                (matches', lmatches + 1, execs', lc + lexecs + 1)
+
+        compileE e
+        cases <- forM l $ \(DBT.Scope _ (Pattern name _, e)) -> do
+            c <- compile' e
+            return (name, c)
+        let (matches, _, execs, _) = writeCases cases
+        tellall (uncurry Branchmatch <$> matches)
+        tellall execs
 
     DBT.Ap (expr -> DBT.Ap (expr -> DBT.Free "&&") x) y -> do
         compileE x
