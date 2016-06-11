@@ -69,13 +69,12 @@ sysCalls = M.fromList
 
 
 
-adts :: [ADT Name]
-adts = [pair]
+defaultAdts :: [ADT Name]
+defaultAdts = [pair]
 
 pair :: ADT Name
 pair = ADT {
       adtName = ","
-    , deconstructor = Just "unPair"
     , adtParams = ["a", "b"]
     , adtConstructors = [
           ADT.Constructor "," [TVar "a", TVar "b"]
@@ -84,4 +83,4 @@ pair = ADT {
 
 
 globalContext :: Context
-globalContext = sysCalls <> contextFromADTs adts
+globalContext = sysCalls <> contextFromADTs defaultAdts

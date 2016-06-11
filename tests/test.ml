@@ -2,7 +2,6 @@ data Option a = None | Some a in
 data List a = Nil | (:) a (List a) in
 
 let id x = x in
-let default x = unOption x id in
 let rec fold f e l = match l with
   | Nil -> e
   | x : q -> fold f (f x e) q

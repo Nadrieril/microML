@@ -30,7 +30,6 @@ data Instr =
     | Branch Int
     | SysCall Name
     | Constructor Name Int Int
-    | Deconstructor Name Int
     | Push Value
     | Panic String
     deriving (Show, Read)
@@ -58,7 +57,6 @@ getSysCall ctx x | Just (cv, _) <- x `M.lookup` ctx =
         C.Value v -> Push v
         C.Constructor adt n i -> let name = ADT.constructorName (ADT.adtConstructors adt !! n) in
                 Constructor name n i
-        C.Deconstructor adt i -> Deconstructor (ADT.adtName adt) i
         C.SysCall _ -> error $ printf "Cannot compile syscall from local context: %s" (show x)
 getSysCall _ x = SysCall x
 

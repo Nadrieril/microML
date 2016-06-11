@@ -5,7 +5,7 @@ import Data.Proxy (Proxy(..))
 import qualified Data.Map as M
 import qualified Debug.Trace as T
 import Data.List (intercalate)
-import Control.Monad (void, unless, forM_, forM, when)
+import Control.Monad (void, unless, forM, when)
 import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, evalState)
 import Control.Eff.Reader.Strict (Reader, ask, runReader)
@@ -30,7 +30,6 @@ data Value =
     | Closure (Code, Env)
     | RecClosure (Code, Env)
     | Constructor Name Int Int [Value]
-    | Deconstructor Name Int [Value]
     | PartialSysCall (Expr.Value -> C.ContextValue)
 
 instance PrettyPrint Value where
@@ -40,7 +39,6 @@ instance PrettyPrint Value where
     pprint (Constructor name _ _ l) = case reverse l of
             [x, y] | isOperator name -> printf "(%s %s %s)" (pprint x) (pprint name) (pprint y)
             l -> printf "%s[%s]" (pprint name) (intercalate ", " (map pprint l))
-    pprint (Deconstructor name _ _) = printf "un%s[..]" (pprint name)
     pprint (PartialSysCall _) = printf "PartialSysCall"
 
 instance Show Value where
@@ -51,7 +49,6 @@ fromContext = \case
     C.Value v -> Value v
     C.Constructor adt n i -> let name = ADT.constructorName (ADT.adtConstructors adt !! n) in
             Constructor name n i []
-    C.Deconstructor adt i -> Deconstructor (ADT.adtName adt) i []
     C.SysCall sc -> PartialSysCall sc
 
 getSysCall :: Name -> Value
@@ -100,18 +97,6 @@ evalAp = \case
     Constructor name n i l | i /= 0 -> do
         x <- pop valstack
         push valstack $ Constructor name n (i-1) (x:l)
-
-    Deconstructor _ 0 p ->
-        pop valstack >>= \case
-            Constructor _ n 0 l -> do
-                let f = p !! (length p - 1 - n)
-                forM_ l (push valstack)
-                push valstack f
-                forM_ l (\_ -> push code I.Apply)
-            v -> error $ printf "Attempting to deconstruct non-product value %s" (show v)
-    Deconstructor name i p -> do
-        x <- pop valstack
-        push valstack $ Deconstructor name (i-1) (x:p)
 
     PartialSysCall f -> do
         Value v <- pop valstack
@@ -170,8 +155,6 @@ evalInstr c = case c of
     I.SysCall sc -> push valstack $ getSysCall sc
 
     I.Constructor name n i -> push valstack $ Constructor name n i []
-
-    I.Deconstructor name i -> push valstack $ Deconstructor name i []
 
     I.Push v -> push valstack (Value v)
 

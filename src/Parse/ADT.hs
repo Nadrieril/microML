@@ -19,5 +19,5 @@ adt = do
     reservedOp "="
     constructors <- sepBy constructor (reservedOp "|")
     reserved "in"
-    return $ ADT name params constructors Nothing
+    return $ ADT name params constructors
     <?> "ADT"

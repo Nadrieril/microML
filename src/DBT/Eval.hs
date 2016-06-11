@@ -8,7 +8,7 @@ module DBT.Eval
 
 import qualified Data.Map as M
 import Data.Monoid ((<>))
-import Data.Foldable (foldrM, asum)
+import Data.Foldable (asum)
 import Data.List (intercalate)
 import Control.Monad (forM)
 import Control.Eff (Member, Eff, run)
@@ -34,7 +34,6 @@ data Val =
   | VRecFun Env TypedExpr
   | VSysCall (Val -> Val)
   | VConstructor (ADT Id) Int Int [Val]
-  | VDeconstructor (ADT Id) Int [Val]
 
 instance PrettyPrint Val where
     pprint (Val x) = printf "Val %s" (pprint x)
@@ -45,7 +44,6 @@ instance PrettyPrint Val where
         case reverse l of
             [x, y] | isOperator name -> printf "(%s %s %s)" (pprint x) (pprint name) (pprint y)
             l -> printf "%s[%s]" (pprint name) (intercalate ", " (map pprint l))
-    pprint (VDeconstructor adt _ _) = printf "%s.." (pprint $ deconstructorName adt)
 
 instance Show Val where
     show =let ?toplevel = False in pprint
@@ -54,7 +52,6 @@ fromContext :: C.ContextValue -> Val
 fromContext = \case
     C.Value v -> Val v
     C.Constructor adt n i -> VConstructor adt n i []
-    C.Deconstructor adt i -> VDeconstructor adt i []
     C.SysCall f -> VSysCall (\(Val x) -> fromContext (f x))
 
 getFree :: C.Context -> Name -> Val
@@ -95,13 +92,6 @@ evalAp f@(VRecFun stk e) y =
 evalAp (VSysCall f) y = return $ f y
 evalAp (VConstructor _ _ 0 _) _ = error "Attempting to evaluate product as function"
 evalAp (VConstructor adt n i l) x = return $ VConstructor adt n (i-1) (x:l)
-evalAp (VDeconstructor (adtName -> n) 0 _) (VConstructor (adtName -> n') _ 0 _)
-        | n /= n' = error $ printf "Attempting to deconstruct %s value as a %s" (show n) (show n')
-evalAp (VDeconstructor _ 0 p) (VConstructor _ n 0 l) = do
-        let f = p !! (length p - 1 - n)
-        foldrM (flip evalAp) f l
-evalAp (VDeconstructor _ 0 _) _ = error "Attempting to deconstruct non-product value"
-evalAp (VDeconstructor adt i p) x = return $ VDeconstructor adt (i-1) (x:p)
 evalAp v _ = error $ printf "Error: attempting to evaluate %s as a function" (show v)
 
 evalE :: TypedExpr -> Eval r Val
