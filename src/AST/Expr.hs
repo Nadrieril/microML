@@ -21,8 +21,8 @@ data AbstractExpr v a =
     | Infix v a a
     | Negate a
     | Ap a a
-    | Let v a a
-    | LetR v a a
+    | Let v [v] a a
+    | LetR v [v] a a
     | Match a [(Pattern Name, a)]
     | If a a a
     | Fun v a

@@ -172,6 +172,7 @@ letin = do
     b <- optionMaybe $ reserved "rec"
     (if isJust b then LetR else Let)
         <$> identOrOp
+        <*> many ident
         <* reservedOp "=" <*> expr
         <* reserved "in" <*> expr
     <?> "let"

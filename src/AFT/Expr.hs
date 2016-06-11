@@ -55,8 +55,11 @@ fromAST (LFixP t e) = LFixP t $
         AST.If b e1 e2 -> If (fromAST b) (fromAST e1) (fromAST e2)
         AST.Negate e -> Ap (untyped $ Ap (untyped $ Var "-") (untyped $ Const $ I 0)) (fromAST e)
         AST.Infix o e1 e2 -> Ap (untyped $ Ap (untyped $ Var o) (fromAST e1)) (fromAST e2)
-        AST.Let x v e -> SLet x (fromAST v) (fromAST e)
-        AST.LetR f v e -> SLet f (untyped $ SFix f (fromAST v)) (fromAST e)
+        AST.Let x l v e -> SLet x (fargs l $ fromAST v) (fromAST e)
+        AST.LetR f l v e -> SLet f (untyped $ SFix f (fargs l $ fromAST v)) (fromAST e)
         AST.Match e l -> Match (fromAST e) [ Scope pat (fromAST e) | (pat, e) <- l ]
         AST.Wrap _ -> error "impossible"
-    where untyped = LFixP Nothing
+    where
+        untyped = LFixP Nothing
+        fargs :: [Name] -> TypedExpr Name -> TypedExpr Name
+        fargs = flip $ foldr (\n e -> untyped $ SFun n e)

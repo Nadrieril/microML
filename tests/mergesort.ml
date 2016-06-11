@@ -1,19 +1,19 @@
 data List a = Nil | Cons a (List a) in
 
-let id = fun x -> x in
-let const = fun x -> fun y -> x in
-let ($) = fun f -> fun x -> f x in
-let (.) = fun f -> fun g -> fun x -> f (g x) in
+let id x = x in
+let const x y = x in
+let ($) f x = f x in
+let (.) f g x = f (g x) in
 let fst = unPair const in
 let snd = unPair (const id) in
 let (:) = Cons in
 
-let rec length = fun l -> match l with
+let rec length l = match l with
     Nil -> 0
   | Cons x q -> 1 + length q
 end in
 
-let rec split = fun l -> match l with
+let rec split l = match l with
   | Nil -> (Nil, Nil)
   | Cons x q -> match q with
     | Nil -> (x:Nil, Nil)
@@ -21,7 +21,7 @@ let rec split = fun l -> match l with
   end
 end in
 
-let rec merge = fun l1 -> fun l2 -> match l1 with
+let rec merge l1 l2= match l1 with
   | Nil -> l2
   | Cons x1 q1 -> match l2 with
     | Nil -> l1
@@ -32,7 +32,7 @@ let rec merge = fun l1 -> fun l2 -> match l1 with
   end
 end in
 
-let rec mergeSort = fun l ->
+let rec mergeSort l =
     if length l <= 1
     then l
     else

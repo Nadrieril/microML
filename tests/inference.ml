@@ -1,8 +1,14 @@
 data Option a = None | Some a in
 
-let id = fun x -> x in
-let (.) = fun f -> fun g -> fun x -> f (g x) in
-let lift2 = fun f -> fun x -> fun y -> unOption None (fun x' -> unOption None (Some . f x') y) x in
+let id x = x in
+let (.) f g x = f (g x) in
+let lift2 f x y = match x with
+  | None -> None
+  | Some x -> match y with
+    | None -> None
+    | Some y -> Some (f x y)
+  end
+end in
 let default = (fun x -> unOption x id) :: a -> Option a -> a in
 let x = None :: Option a in
 let y = None :: Option Int in
