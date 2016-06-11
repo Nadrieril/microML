@@ -45,6 +45,7 @@ data Scope v e = Scope v e
 pattern SFun e <- Fun (Scope _ e)
 pattern SFix e <- Fix (Scope _ e)
 pattern SLet v e <- Let v (Scope _ e)
+pattern Var n <- (\case { Free n -> Just n;  Bound n _ -> Just n; _ -> Nothing } -> Just n)
 
 type LabelledExp l = LFixP AbstractExpr l
 
@@ -70,7 +71,7 @@ instance PrettyPrint TypedExpr where
             (if ?toplevel then typeAnnotation else "") ++ expr
         Match e l -> let patterns :: String = concat [printf "\n| %s -> %s" (pprint p) (pprint e) | Scope _ (p, e) <- l]
             in printf "match %s with %s end" (pprint e) patterns
-        Ap (expr -> Ap (expr -> Free o) x) y | isOperator o -> printf "(%s %s %s)" (pprint x) (pprint o) (pprint y)
+        Ap (expr -> Ap (expr -> Var o) x) y | isOperator o -> printf "(%s %s %s)" (pprint x) (pprint o) (pprint y)
         Ap f x@(expr -> Ap _ _) -> printf "%s (%s)" (pprint f) (pprint x)
         Ap f x -> printf "%s %s" (pprint f) (pprint x)
         If b e1 e2 -> printf "if %s then %s else %s" (pprint b) (pprint e1) (pprint e2)
