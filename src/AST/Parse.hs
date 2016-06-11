@@ -17,7 +17,7 @@ import Common.Pattern
 import Common.Type
 
 -------------------------------------------------------------------------------
---- Lexer / Parser ---
+--- Tokens ---
 languageDef =
     emptyDef
         { Token.commentStart    = "(*"
@@ -27,7 +27,6 @@ languageDef =
                                   , "let", "rec", "in", "fun"
                                   , "data", "true" , "false"
                                   , "match", "with", "end"
-                                  , "Int", "Bool"
                                   ]
         , Token.reservedOpNames = ["::", "->", "=", "|" ]
         , Token.opStart = Token.opLetter languageDef
@@ -37,7 +36,7 @@ languageDef =
 lexer = Token.makeTokenParser languageDef
 
 ident      = Token.identifier lexer
-operator   = Token.operator lexer
+operator   = Token.operator   lexer
 reserved   = Token.reserved   lexer
 reservedOp = Token.reservedOp lexer
 parens     = Token.parens     lexer
@@ -49,6 +48,17 @@ isOperator = isRight . parse operator ""
 
 identOrOp :: Parser Name
 identOrOp = ident <|> parens operator
+
+typeIdent :: Parser Name
+typeIdent = do
+        c <- upper
+        cs <- many (alphaNum <|> oneOf "_'")
+        whiteSpace
+        return (c:cs)
+    <?> "type identifier"
+
+typeIdentOrOp :: Parser Name
+typeIdentOrOp = typeIdent <|> parens operator
 
 -------------------------------------------------------------------------------
 --- Literals ---
@@ -67,18 +77,8 @@ integer = (Const . I) <$> natural
 untyped :: UntypedExpr a -> TypedExpr a
 untyped = LFixP Nothing
 
-typeIdent :: Parser Name
-typeIdent = do
-        c <- upper
-        cs <- many (alphaNum <|> oneOf "_'")
-        whiteSpace
-        return (c:cs)
-    <?> "type identifier"
-
 typeAtom :: Parser (Mono Name)
 typeAtom = parens typ
-       <|> TConst <$> (reserved "Int" *> return TInt)
-       <|> TConst <$> (reserved "Bool" *> return TBool)
        <|> TProduct <$> typeIdent <*> many typeAtom
        <|> TVar <$> ident
     <?> "type atom"
@@ -99,7 +99,7 @@ typed p = flip LFixP <$> p <*> optionMaybe (reservedOp "::" >> typ)
 -------------------------------------------------------------------------------
 --- ADTs ---
 constructor :: Parser (Constructor Name)
-constructor = Constructor <$> typeIdent <*> many typeAtom
+constructor = Constructor <$> typeIdentOrOp <*> many typeAtom
 
 adt :: Parser (ADT Name)
 adt = do
@@ -140,9 +140,21 @@ operators = [ [neg]
 
 -------------------------------------------------------------------------------
 --- Pattern-matching ---
+pattrnOperators :: forall st. [[Operator Char st (Pattern Name)]]
+pattrnOperators = [ [r ":"], [l ","] ]
+    where
+        f o = Infix (reservedOp o >> return (\x y -> Pattern o [x, y]))
+        l o = f o AssocLeft
+        r o = f o AssocRight
+
+pattrnAtom :: Parser (Pattern Name)
+pattrnAtom = try (parens pattrn)
+       <|> Pattern <$> typeIdentOrOp <*> many pattrnAtom
+       <|> PVar <$> ident
+    <?> "pattern atom"
+
 pattrn :: Parser (Pattern Name)
-pattrn = Pattern <$> typeIdent <*> many (parens pattrn <|> pattrn)
-     <|> PVar <$> ident
+pattrn = buildExpressionParser pattrnOperators pattrnAtom
      <?> "pattern expression"
 
 matchexpr :: Parser (Pattern Name, Expr)
