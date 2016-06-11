@@ -8,7 +8,7 @@ module DBT.Expr
     , LabelledExp
     , TypedExpr
     , Program
-    , afttodbt
+    , fromAFT
     , pattern SFun, pattern SFix, pattern SLet
     ) where
 
@@ -83,45 +83,25 @@ instance Show TypedExpr where
     show = let ?toplevel = False in pprint
 
 
-deBruijn :: LabelledExp l -> LabelledExp l
-deBruijn e = evalState (deBruijnS e) []
+fromAFT :: AFT.Expr -> Expr
+fromAFT e = evalState (aux e) []
     where
-        deBruijnS :: LabelledExp l -> State (Stack Name) (LabelledExp l)
-        deBruijnS (LFixP t e) = LFixP t <$> case e of
-            Const c -> return $ Const c
-            Bound n i -> return $ Bound n i
-            Free n -> do
+        aux :: AFT.Expr -> State (Stack Name) Expr
+        aux (LFixP t e) = LFixP t <$> case e of
+            AFT.Const c -> return $ Const c
+            AFT.Var n -> do
                 s <- get
                 return $ case n `elemIndex` s of
                     Just i -> Bound n i
                     Nothing -> Free n
-            If b e1 e2 -> If <$> deBruijnS b <*> deBruijnS e1 <*> deBruijnS e2
-            Ap g x -> Ap <$> deBruijnS g <*> deBruijnS x
-            Fun s -> Fun <$> auxScope s
-            Fix s -> Fix <$> auxScope s
-            Let v s -> Let <$> deBruijnS v <*> auxScope s
-            Match e l -> Match <$> deBruijnS e <*> forM l auxPatScope
+            AFT.If b e1 e2 -> If <$> aux b <*> aux e1 <*> aux e2
+            AFT.Ap f x -> Ap <$> aux f <*> aux x
+            AFT.Fun s -> Fun <$> auxScope s
+            AFT.Fix s -> Fix <$> auxScope s
+            AFT.Let v s -> Let <$> aux v <*> auxScope s
+            AFT.Match e l -> Match <$> aux e <*> forM l auxPatScope
             where
-                auxScope s@(Scope n _) = traverse (withPush n . deBruijnS) s
-                auxPatScope s@(Scope n _) = traverse (traverse (withPushAll n . deBruijnS)) s
-
-
-
-fromAFT :: AFT.Expr -> Expr
-fromAFT (LFixP t e) = LFixP t $ case e of
-    AFT.Var x -> Free x
-    AFT.Const c -> Const c
-    AFT.If b e1 e2 -> If (fromAFT b) (fromAFT e1) (fromAFT e2)
-    AFT.Ap f x -> Ap (fromAFT f) (fromAFT x)
-    AFT.Fun s -> Fun $ auxScope s
-    AFT.Fix s -> Fix $ auxScope s
-    AFT.Let v s -> Let (fromAFT v) (auxScope s)
-    AFT.Match e l -> Match (fromAFT e)
-        [ let binders = getPatternBinders p in
-            Scope binders (fmap (\x -> BoundVar x (fromJust $ x `elemIndex` binders)) p, fromAFT e)
-        | AFT.Scope p e <- l]
-    where auxScope (AFT.Scope n e) = Scope n (fromAFT e)
-
-
-afttodbt :: AFT.Expr -> Expr
-afttodbt = deBruijn . fromAFT
+                auxScope (AFT.Scope n e) = traverse (withPush n . aux) (Scope n e)
+                auxPatScope (AFT.Scope ns (p, e)) =
+                    let p' = fmap (\x -> BoundVar x (fromJust $ x `elemIndex` ns)) p in
+                    traverse (traverse (withPushAll ns . aux)) (Scope ns (p', e))

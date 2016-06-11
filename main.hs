@@ -7,7 +7,7 @@ import Options
 
 import AST.Parse (parseML)
 import AFT.Expr (fromAST)
-import DBT.Expr (afttodbt, Program)
+import DBT.Expr (fromAFT, Program)
 import qualified DBT.Eval (eval)
 import DBT.Infer (inferType)
 
@@ -25,7 +25,7 @@ processFile showTyped file = do
     code <- getFileContents file
     (adts, ast) <- evalerr "Parse error" $ either (error.show) id $ parseML code
     aft <- evaluate $ fromAST ast
-    dbt <- evaluate $ afttodbt aft
+    dbt <- evaluate $ fromAFT aft
     ctx <- evaluate $ contextFromADTs adts
     (errors, typed) <- evalerr "Type error" $ inferType ctx dbt
 
