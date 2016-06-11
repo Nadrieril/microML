@@ -10,6 +10,7 @@ import qualified Data.Map as M
 import Data.Monoid ((<>))
 import Data.Foldable (foldrM, asum)
 import Data.List (intercalate)
+import Control.Monad (forM)
 import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, get, put, modify, evalState)
 import Control.Eff.Reader.Strict (Reader, ask, runReader)
@@ -140,7 +141,11 @@ evalE ex@(expr -> Match e l) = do
         evalE e
     where
         matchVal :: Val -> Pattern BoundVar -> Maybe [Val]
-        matchVal (VConstructor (adtConstructors -> ctors) i 0 l) (Pattern n _) | n == constructorName (ctors !! i) = Just $ reverse l
+        matchVal (VConstructor (adtConstructors -> ctors) i 0 l) (Pattern n pats)
+            | n == constructorName (ctors !! i) = do
+                matches <- forM (zip (reverse l) pats) $ uncurry matchVal
+                return $ concat matches
+        matchVal x (PVar _) = Just [x]
         matchVal _ _ = Nothing
 evalE _ = error "impossible"
 

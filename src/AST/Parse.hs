@@ -140,22 +140,23 @@ operators = [ [neg]
 
 -------------------------------------------------------------------------------
 --- Pattern-matching ---
-pattrn :: Parser (Pattern Name, Expr)
-pattrn = do
-    pat <- Pattern <$> typeIdent <*> many ident
-    reservedOp "->"
-    e <- expr
-    return (pat, e)
+pattrn :: Parser (Pattern Name)
+pattrn = Pattern <$> typeIdent <*> many (parens pattrn <|> pattrn)
+     <|> PVar <$> ident
+     <?> "pattern expression"
+
+matchexpr :: Parser (Pattern Name, Expr)
+matchexpr = (,) <$> pattrn <* reservedOp "->" <*> expr
 
 matchwith :: Parser (UntypedExpr Name)
 matchwith = do
     reserved "match"
-    e <- expr
-    reserved "with"
-    optional $ reservedOp "|"
-    patterns <- sepBy pattrn (reservedOp "|")
-    reserved "end"
-    return $ Match e patterns
+    Match
+        <$> expr
+        <*  reserved "with"
+        <*  optional (reservedOp "|")
+        <*> sepBy matchexpr (reservedOp "|")
+        <*  reserved "end"
     <?> "match expression"
 
 
@@ -171,8 +172,8 @@ letin = do
     b <- optionMaybe $ reserved "rec"
     (if isJust b then LetR else Let)
         <$> identOrOp
-        <*> (reservedOp "=" >> expr)
-        <*> (reserved "in" >> expr)
+        <* reservedOp "=" <*> expr
+        <* reserved "in" <*> expr
     <?> "let"
 
 ifthenelse :: Parser (UntypedExpr Name)

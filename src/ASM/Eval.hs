@@ -5,11 +5,10 @@ import Data.Proxy (Proxy(..))
 import qualified Data.Map as M
 import qualified Debug.Trace as T
 import Data.List (intercalate)
-import Control.Monad (replicateM_, void, unless, forM_, when)
+import Control.Monad (void, unless, forM_, forM, when)
 import Control.Eff (Member, Eff, run)
 import Control.Eff.State.Strict (State, evalState)
 import Control.Eff.Reader.Strict (Reader, ask, runReader)
-import Utils.ProxyStateEff (get, put)
 import Text.Printf (printf)
 
 -- import qualified Utils (trace)
@@ -21,6 +20,7 @@ import qualified Common.ADT as ADT
 import ASM.Instr (Instr)
 import qualified ASM.Instr as I
 import qualified Common.Context as C
+import Utils.ProxyStateEff (get, put)
 import Utils.Stackable
 
 
@@ -113,8 +113,8 @@ evalAp = \case
         push valstack $ Deconstructor name (i-1) (x:p)
 
     PartialSysCall f -> do
-            Value v <- pop valstack
-            push valstack $ fromContext $ f v
+        Value v <- pop valstack
+        push valstack $ fromContext $ f v
 
     v -> error $ printf "Error: attempting to evaluate %s as a function" (show v)
 
@@ -144,19 +144,27 @@ evalInstr c = case c of
 
     I.Endlet -> void $ pop env
 
-    I.Branchmatch n i -> do
+    I.Branchmatch p i -> do
+        let matchVal :: Value -> I.Pattern -> Maybe [Value]
+            matchVal (Constructor n _ _ vals) (I.Pattern n' pats)
+                | n == n' = do
+                    matches <- forM (zip (reverse vals) pats) $ uncurry matchVal
+                    return $ concat matches
+            matchVal x I.PVar = Just [x]
+            matchVal _ _ = Nothing
+
         v <- pop valstack
-        case v of
-            Constructor n' _ _ vals | n == n' -> do
-                forM_ vals (push env)
-                replicateM_ i (pop code)
-            _ -> push valstack v
+        case matchVal v p of
+            Just vals -> do
+                pushAll env vals
+                dropS code i
+            Nothing -> push valstack v
 
     I.Branchneg i -> do
         Value (Expr.B v) <- pop valstack
-        unless v $ replicateM_ i (pop code)
+        unless v $ dropS code i
 
-    I.Branch i -> replicateM_ i (pop code)
+    I.Branch i -> dropS code i
 
     I.SysCall sc -> push valstack $ getSysCall sc
 

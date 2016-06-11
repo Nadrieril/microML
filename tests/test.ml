@@ -11,4 +11,9 @@ let rec len = fun l -> match l with
     Nil -> 0
   | Cons x q -> 1 + len q
 end in
-len (Cons 3 (Cons 4 Nil))
+let blih = fun l -> match l with
+  | Nil -> 0
+  | Cons x (Cons y q) -> x + y
+  | Cons x q -> -1
+end in
+blih (Cons 3 (Cons 4 (Cons 5 Nil)))

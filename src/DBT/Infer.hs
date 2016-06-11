@@ -239,12 +239,15 @@ inferTypeE (LFixP t e) =
 
 
         inferPattern :: TypedExpr -> [MonoType] -> Pattern BoundVar -> Env r MonoType
+        inferPattern _ bindersTVars (PVar (BoundVar _ i)) = return $ bindersTVars !! i
         inferPattern e bindersTVars p@(Pattern _ binders) = do
             ctx <- ask
             let (adt, ctor) = getPatternADT ctx p
             adtTVars <- forM (adtParams adt) $ const freshV
             let ctorTypes = map (fmap (adtTVars !!)) $ constructorParams ctor
-            forM_ (zip binders [0..]) $ \(BoundVar _ i, j) -> unify e (bindersTVars !! i) (ctorTypes !! j)
+            forM_ (zip binders [0..]) $ \(b, j) -> do
+                t <- inferPattern e bindersTVars b
+                unify e t (ctorTypes !! j)
             return $ TProduct (adtName adt) (TVar <$> adtTVars)
 
 

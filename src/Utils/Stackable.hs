@@ -23,7 +23,10 @@ inStack :: Stackable b a => (Stack b -> Stack b) -> a -> a
 inStack = (wrapStack .) . (. unwrapStack)
 
 push :: (Stackable b a, Typeable a, Member (State a) r) => Proxy a -> b -> Eff r ()
-push p x = modify p (wrapStack . (x:) . unwrapStack)
+push p x = modify p (inStack (x:))
+
+pushAll :: (Stackable b a, Typeable a, Member (State a) r) => Proxy a -> [b] -> Eff r ()
+pushAll p l = modify p (inStack (l ++))
 
 popM :: (Stackable b a, Typeable a, Member (State a) r) => Proxy a -> Eff r (Maybe b)
 popM p = do
@@ -34,3 +37,6 @@ popM p = do
 
 pop :: (Stackable b a, Typeable a, Member (State a) r) => Proxy a -> Eff r b
 pop p = fromJust <$> popM p
+
+dropS :: (Stackable b a, Typeable a, Member (State a) r) => Proxy a -> Int -> Eff r ()
+dropS p i = modify p (inStack $ drop i)

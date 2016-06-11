@@ -14,7 +14,7 @@ import Common.Expr (Id, Name, Value(..), LFixP(..))
 import qualified DBT.Expr as DBT
 import qualified Common.ADT as ADT
 import qualified Common.Context as C
-import Common.Pattern (Pattern(..))
+import qualified Common.Pattern as P (Pattern(..))
 
 
 data Instr =
@@ -26,7 +26,7 @@ data Instr =
     | Let
     | Endlet
     | Branchneg Int
-    | Branchmatch Name Int
+    | Branchmatch Pattern Int
     | Branch Int
     | SysCall Name
     | Constructor Name Int Int
@@ -34,6 +34,13 @@ data Instr =
     | Push Value
     | Panic String
     deriving (Show, Read)
+
+data Pattern = PVar | Pattern Name [Pattern]
+    deriving (Show, Read)
+
+convertPattern :: P.Pattern a -> Pattern
+convertPattern (P.PVar _) = PVar
+convertPattern (P.Pattern n l) = Pattern n (map convertPattern l)
 
 
 type Env r e = (
@@ -86,9 +93,9 @@ compileE (expr -> e) = case e of
                 (matches', lmatches + 1, execs', lc + lexecs + 1)
 
         compileE e
-        cases <- forM l $ \(DBT.Scope _ (Pattern name _, e)) -> do
+        cases <- forM l $ \(DBT.Scope _ (p, e)) -> do
             c <- compile' e
-            return (name, c)
+            return (convertPattern p, c)
         let (matches, _, execs, _) = writeCases cases
         tellall (uncurry Branchmatch <$> matches)
         tellall (Panic "pattern-matching failed" : tail execs)
