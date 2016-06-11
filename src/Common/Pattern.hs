@@ -6,12 +6,14 @@ module Common.Pattern (
     ) where
 
 import qualified Data.Map as M
+import Text.Printf (printf)
 
 import qualified Common.ADT as ADT
 import Common.ADT hiding (Constructor)
 import Common.Context
 import Common.Expr
 import Utils.PrettyPrint
+import Parse.Token (isOperator)
 
 
 data Pattern a = PVar a | Pattern Name [Pattern a]
@@ -19,7 +21,12 @@ data Pattern a = PVar a | Pattern Name [Pattern a]
 
 instance PrettyPrint a => PrettyPrint (Pattern a) where
     pprint (PVar v) = pprint v
-    pprint (Pattern n l) = "(" ++ unwords (n : map pprint l) ++ ")"
+    pprint (Pattern n l) = case l of
+        [x, y] | isOperator n -> printf "%s %s %s" (pp x) n (pp y)
+        l -> printf "%s" $ unwords (n : map pp l)
+        where
+            pp p@(Pattern _ (_:_))= printf "(%s)" $ pprint p
+            pp p = pprint p
 
 
 getPatternBinders :: Pattern a -> [a]
