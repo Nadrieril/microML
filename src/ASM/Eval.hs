@@ -166,6 +166,8 @@ evalInstr c = case c of
 
     I.Push v -> push valstack (Value v)
 
+    I.Panic s -> error s
+
 
 evalE :: ASMEval r Value
 evalE = do

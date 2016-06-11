@@ -32,6 +32,7 @@ data Instr =
     | Constructor Name Int Int
     | Deconstructor Name Int
     | Push Value
+    | Panic String
     deriving (Show, Read)
 
 
@@ -90,7 +91,7 @@ compileE (expr -> e) = case e of
             return (name, c)
         let (matches, _, execs, _) = writeCases cases
         tellall (uncurry Branchmatch <$> matches)
-        tellall execs
+        tellall (Panic "pattern-matching failed" : tail execs)
 
     DBT.Ap (expr -> DBT.Ap (expr -> DBT.Free "&&") x) y -> do
         compileE x
