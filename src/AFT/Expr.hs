@@ -13,7 +13,7 @@ import Control.Monad (mplus)
 import Common.Expr
 import Common.Pattern
 import Common.Type
-import qualified AST.Expr as AST
+import qualified Parse.AST as AST
 
 
 data AbstractExpr a =

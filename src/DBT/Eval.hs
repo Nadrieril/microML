@@ -16,7 +16,7 @@ import Control.Eff.State.Strict (State, get, put, modify, evalState)
 import Control.Eff.Reader.Strict (Reader, ask, runReader)
 import Text.Printf (printf)
 
-import AST.Parse (isOperator)
+import Parse.Token (isOperator)
 import Common.ADT
 import Common.Expr
 import Common.Pattern

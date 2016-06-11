@@ -5,7 +5,7 @@ import Control.Monad
 import Control.Exception
 import Options
 
-import AST.Parse (parseML)
+import Parse.Program (parseML)
 import AFT.Expr (fromAST)
 import DBT.Expr (fromAFT, Program)
 import qualified DBT.Eval (eval)

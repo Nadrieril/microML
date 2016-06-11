@@ -21,7 +21,7 @@ import Text.Printf (printf)
 
 import Utils (Stack, withPush, withPushAll)
 import Utils.PrettyPrint
-import AST.Parse (isOperator)
+import Parse.Token (isOperator)
 import Common.Expr
 import Common.Pattern
 import Common.Type

@@ -1,6 +1,5 @@
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
--- ASM = Abstract Syntax Tree
-module AST.Expr
+-- AST = Abstract Syntax Tree
+module Parse.AST
     ( AbstractExpr(..)
     , LabelledExp
     , TypedExpr

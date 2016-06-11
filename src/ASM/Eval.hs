@@ -12,7 +12,7 @@ import Control.Eff.Reader.Strict (Reader, ask, runReader)
 import Text.Printf (printf)
 
 -- import qualified Utils (trace)
-import AST.Parse (isOperator)
+import Parse.Token (isOperator)
 import Common.Expr (Name)
 import qualified Common.Expr as Expr (Value(..))
 import qualified Common.StdLib as Std
