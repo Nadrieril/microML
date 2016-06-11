@@ -62,19 +62,19 @@ typeIdentOrOp = typeIdent <|> parens operator
 
 -------------------------------------------------------------------------------
 --- Literals ---
-boolean :: Parser (UntypedExpr Name)
+boolean :: Parser UntypedExpr
 boolean = fmap (Const . B) (
           (reserved "true" >> return True)
       <|> (reserved "false" >> return False)
       <?> "boolean")
 
-integer :: Parser (UntypedExpr Name)
+integer :: Parser UntypedExpr
 integer = (Const . I) <$> natural
     <?> "integer"
 
 -------------------------------------------------------------------------------
 --- Types ---
-untyped :: UntypedExpr a -> TypedExpr a
+untyped :: UntypedExpr-> TypedExpr
 untyped = LFixP Nothing
 
 typeAtom :: Parser (Mono Name)
@@ -93,7 +93,7 @@ typ :: Parser (Mono Name)
 typ = buildExpressionParser typeOperators typeAtom
     <?> "type annotation"
 
-typed :: Parser (UntypedExpr Name) -> Parser (TypedExpr Name)
+typed :: Parser UntypedExpr -> Parser TypedExpr
 typed p = flip LFixP <$> p <*> optionMaybe (reservedOp "::" >> typ)
 
 -------------------------------------------------------------------------------
@@ -114,7 +114,7 @@ adt = do
 
 -------------------------------------------------------------------------------
 --- Operators ---
-operators :: forall st. [[Operator Char st (UntypedExpr Name)]]
+operators :: forall st. [[Operator Char st UntypedExpr]]
 operators = [ [neg]
             , [l "*", l "/"]
             , [l "+", l "-"]
@@ -160,7 +160,7 @@ pattrn = buildExpressionParser pattrnOperators pattrnAtom
 matchexpr :: Parser (Pattern Name, Expr)
 matchexpr = (,) <$> pattrn <* reservedOp "->" <*> expr
 
-matchwith :: Parser (UntypedExpr Name)
+matchwith :: Parser UntypedExpr
 matchwith = do
     reserved "match"
     Match
@@ -174,11 +174,11 @@ matchwith = do
 
 -------------------------------------------------------------------------------
 --- Expressions ---
-variable :: Parser (UntypedExpr Name)
+variable :: Parser UntypedExpr
 variable = Var <$> identOrOp
     <?> "variable"
 
-letin :: Parser (UntypedExpr Name)
+letin :: Parser UntypedExpr
 letin = do
     reserved "let"
     b <- optionMaybe $ reserved "rec"
@@ -189,18 +189,18 @@ letin = do
         <* reserved "in" <*> expr
     <?> "let"
 
-ifthenelse :: Parser (UntypedExpr Name)
+ifthenelse :: Parser UntypedExpr
 ifthenelse = If <$> (reserved "if" >> expr)
                 <*> (reserved "then" >> expr)
                 <*> (reserved "else" >> expr)
     <?> "if"
 
-lambda :: Parser (UntypedExpr Name)
+lambda :: Parser UntypedExpr
 lambda = Fun <$> (reserved "fun" >> identOrOp)
              <*> (reservedOp "->" >> expr)
     <?> "lambda"
 
-atom :: Parser (UntypedExpr Name)
+atom :: Parser UntypedExpr
 atom =  try variable
     <|> (Wrap <$> parens expr)
     <|> letin
@@ -211,7 +211,7 @@ atom =  try variable
     <|> integer
     <?> "atom"
 
-funAp :: Parser (UntypedExpr Name)
+funAp :: Parser UntypedExpr
 funAp = foldl1 (Ap `on` untyped) <$> many1 atom <?> "function application"
 
 expr :: Parser Expr

@@ -16,29 +16,21 @@ import Common.Type
 import qualified AST.Expr as AST
 
 
-data AbstractExpr v a =
-      Var v
+data AbstractExpr a =
+      Var Name
     | Const Value
-    | Fun (Scope v a)
-    | Fix (Scope v a)
+    | Fun (Scope Name a)
+    | Fix (Scope Name a)
     | Ap a a
-    | Let a (Scope v a)
-    | Match a [Scope [v] (Pattern v, a)]
+    | Let a (Scope Name a)
+    | Match a [Scope [Name] (Pattern Name, a)]
     | If a a a
 
 data Scope v e = Scope v e
 
-pattern SFun n e <- Fun (Scope n e) where
-    SFun n e = Fun (Scope n e)
-pattern SFix n e <- Fix (Scope n e) where
-    SFix n e = Fix (Scope n e)
-pattern SLet n v e <- Let v (Scope n e) where
-    SLet n v e = Let v (Scope n e)
+type LabelledExp l = LFixP AbstractExpr l
 
-type LabelledExp l v = LFixP (AbstractExpr v) l
-
-type TypedExpr v = LabelledExp (Maybe (Mono Name)) v
-type Expr = TypedExpr Name
+type Expr = LabelledExp (Maybe (Mono Name))
 
 
 fromAST :: AST.Expr -> Expr
@@ -50,16 +42,19 @@ fromAST (LFixP t e) = LFixP t $
     case e of
         AST.Var v -> Var v
         AST.Const c -> Const c
-        AST.Fun n e -> SFun n (fromAST e)
+        AST.Fun n e -> mkFun n (fromAST e)
         AST.Ap f x -> Ap (fromAST f) (fromAST x)
         AST.If b e1 e2 -> If (fromAST b) (fromAST e1) (fromAST e2)
         AST.Negate e -> Ap (untyped $ Ap (untyped $ Var "-") (untyped $ Const $ I 0)) (fromAST e)
         AST.Infix o e1 e2 -> Ap (untyped $ Ap (untyped $ Var o) (fromAST e1)) (fromAST e2)
-        AST.Let x l v e -> SLet x (fargs l $ fromAST v) (fromAST e)
-        AST.LetR f l v e -> SLet f (untyped $ SFix f (fargs l $ fromAST v)) (fromAST e)
+        AST.Let x l v e -> mkLet x (fargs l $ fromAST v) (fromAST e)
+        AST.LetR f l v e -> mkLet f (untyped $ mkFix f (fargs l $ fromAST v)) (fromAST e)
         AST.Match e l -> Match (fromAST e) [ Scope (getPatternBinders p) (p, fromAST e) | (p, e) <- l ]
         AST.Wrap _ -> error "impossible"
     where
         untyped = LFixP Nothing
-        fargs :: [Name] -> TypedExpr Name -> TypedExpr Name
-        fargs = flip $ foldr (\n e -> untyped $ SFun n e)
+        mkFun n e = Fun (Scope n e)
+        mkFix n e = Fix (Scope n e)
+        mkLet n v e = Let v (Scope n e)
+        fargs :: [Name] -> Expr -> Expr
+        fargs = flip $ foldr (\n e -> untyped $ mkFun n e)

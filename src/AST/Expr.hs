@@ -15,23 +15,23 @@ import Common.Pattern
 import Common.Type
 
 
-data AbstractExpr v a =
-      Var v
+data AbstractExpr a =
+      Var Name
     | Const Value
-    | Infix v a a
+    | Infix Name a a
     | Negate a
     | Ap a a
-    | Let v [v] a a
-    | LetR v [v] a a
+    | Let Name [Name] a a
+    | LetR Name [Name] a a
     | Match a [(Pattern Name, a)]
     | If a a a
-    | Fun v a
+    | Fun Name a
     | Wrap a
 
-type LabelledExp l v = LFixP (AbstractExpr v) l
+type LabelledExp l = LFixP AbstractExpr l
 
-type TypedExpr v = LabelledExp (Maybe (Mono Name)) v
-type UntypedExpr v = AbstractExpr v (TypedExpr v)
-type Expr = TypedExpr Name
+type TypedExpr = LabelledExp (Maybe (Mono Name))
+type UntypedExpr = AbstractExpr TypedExpr
+type Expr = TypedExpr
 
 type Program = ([ADT Name], Expr)
