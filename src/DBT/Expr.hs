@@ -8,6 +8,7 @@ module DBT.Expr
     , LabelledExp
     , TypedExpr
     , Program
+    , scopeMap
     , fromAFT
     , pattern SFun, pattern SFix, pattern SLet
     ) where
@@ -28,27 +29,40 @@ import Common.Type
 import Common.Context
 import qualified AFT.Expr as AFT
 
-data AbstractExpr a =
+data AbstractExpr s a =
       Bound Name Id
     | Free Name
     | Const Value
     | If a a a
-    | Fun (Scope a)
-    | Fix (Scope a)
-    | Let a (Scope a)
-    | Match a [(Pattern BoundVar, Scope a)]
+    | Fun (s a)
+    | Fix (s a)
+    | Let a (s a)
+    | Match a [(Pattern BoundVar, s a)]
     | Ap a a
-    deriving (Functor, Foldable, Traversable)
+    deriving (Functor, Foldable, Traversable, Show)
+
+scopeMap :: (f a -> g a) -> AbstractExpr f a -> AbstractExpr g a
+scopeMap f e = case e of
+    Bound n i -> Bound n i
+    Free g -> Free g
+    Const x -> Const x
+    If b e1 e2 -> If b e1 e2
+    Ap f x -> Ap f x
+    Fun s -> Fun (f s)
+    Fix s -> Fix (f s)
+    Let v s -> Let v (f s)
+    Match e l -> Match e (fmap (fmap f) l)
+
 
 data Scope e = Scope [Name] e
-    deriving (Functor, Foldable, Traversable)
+    deriving (Functor, Foldable, Traversable, Show)
 
 pattern SFun e <- Fun (Scope _ e)
 pattern SFix e <- Fix (Scope _ e)
 pattern SLet v e <- Let v (Scope _ e)
 pattern Var n <- (\case { Free n -> Just n;  Bound n _ -> Just n; _ -> Nothing } -> Just n)
 
-type LabelledExp l = LFixP AbstractExpr l
+type LabelledExp l = LFixP (AbstractExpr Scope) l
 
 type Expr = LabelledExp (Maybe (Mono Name))
 type TypedExpr = LabelledExp MonoType

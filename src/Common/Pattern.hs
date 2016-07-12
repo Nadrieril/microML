@@ -17,7 +17,7 @@ import Parse.Token (isOperator)
 
 
 data Pattern a = PVar a | Pattern Name [Pattern a]
-    deriving (Functor)
+    deriving (Functor, Show)
 
 instance PrettyPrint a => PrettyPrint (Pattern a) where
     pprint (PVar v) = pprint v

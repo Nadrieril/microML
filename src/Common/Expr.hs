@@ -11,7 +11,7 @@ type Id = Int
 
 
 data BoundVar = BoundVar Name Id
-    deriving (Eq, Ord, Generic, Hashable)
+    deriving (Eq, Ord, Generic, Hashable, Show)
 
 instance PrettyPrint BoundVar where
     pprint (BoundVar n _) = n
