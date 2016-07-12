@@ -124,7 +124,7 @@ evalE (expr -> Ap f x) = do
     evalAp vf vx
 evalE ex@(expr -> Match e l) = do
     ve <- evalE e
-    (vals, e) <- case asum [ (,e) <$> matchVal ve p | Scope _ (p, e) <- l ] of
+    (vals, e) <- case asum [ (,e) <$> matchVal ve p | (p, Scope _ e) <- l ] of
         Nothing -> error $ printf "Error: non-exhaustive pattern-matching in %s" (show ex)
         Just x -> return x
     local $ do

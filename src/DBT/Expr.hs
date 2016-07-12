@@ -33,14 +33,14 @@ data AbstractExpr a =
     | Free Name
     | Const Value
     | If a a a
-    | Fun (Scope Name a)
-    | Fix (Scope Name a)
-    | Let a (Scope Name a)
-    | Match a [Scope [Name] (Pattern BoundVar, a)]
+    | Fun (Scope a)
+    | Fix (Scope a)
+    | Let a (Scope a)
+    | Match a [(Pattern BoundVar, Scope a)]
     | Ap a a
     deriving (Functor, Foldable, Traversable)
 
-data Scope v e = Scope v e
+data Scope e = Scope [Name] e
     deriving (Functor, Foldable, Traversable)
 
 pattern SFun e <- Fun (Scope _ e)
@@ -60,17 +60,18 @@ instance PrettyPrint TypedExpr where
         Bound n _ -> showIdent n
         Free x -> showIdent x
         Const c -> pprint c
-        Fun (Scope n e) -> printf "(\\%s -> %s)" (pprint n) (pprint e)
-        Fix (Scope n e) -> printf "fix(\\%s -> %s)" (pprint n) (pprint e)
-        Let v (Scope n e) ->
+        Fun (Scope ns e) -> printf "(\\%s -> %s)" (pprint $ head ns) (pprint e)
+        Fix (Scope ns e) -> printf "fix(\\%s -> %s)" (pprint $ head ns) (pprint e)
+        Let v (Scope ns e) ->
+            let n = head ns in
             let typeAnnotation = printf "/// %s :: %s\n" (showIdent n) (pprint $ label v) in
-            let (isRec, v') = case v of { LFixP _ (Fix (Scope n' x)) | n == n' -> (True, x) ; _ -> (False, v) } in
+            let (isRec, v') = case v of { LFixP _ (Fix (Scope ns' x)) | ns == ns' -> (True, x) ; _ -> (False, v) } in
             let rec = if isRec then "rec " else "" in
             let (params, v'') = unfoldFun v' in
             let paramStr = concatMap ((' ':) . pprint) params in
             let expr = printf "let %s%s%s = %s in\n%s" rec (showIdent n) paramStr (let ?toplevel = False in pprint v'') (pprint e) in
             (if ?toplevel then typeAnnotation else "") ++ expr
-        Match e l -> let patterns :: String = concat [printf "\n| %s -> %s" (pprint p) (pprint e) | Scope _ (p, e) <- l]
+        Match e l -> let patterns :: String = concat [printf "\n| %s -> %s" (pprint p) (pprint e) | (p, Scope _ e) <- l]
             in printf "match %s with %s end" (pprint e) patterns
         Ap (expr -> Ap (expr -> Var o) x) y | isOperator o -> printf "(%s %s %s)" (pprint x) (pprint o) (pprint y)
         Ap f x@(expr -> Ap _ _) -> printf "%s (%s)" (pprint f) (pprint x)
@@ -78,7 +79,7 @@ instance PrettyPrint TypedExpr where
         If b e1 e2 -> printf "if %s then %s else %s" (pprint b) (pprint e1) (pprint e2)
         where
             showIdent n = if isOperator n then printf "(%s)" n else n
-            unfoldFun (expr -> Fun (Scope n e)) = first (n:) $ unfoldFun e
+            unfoldFun (expr -> Fun (Scope ns e)) = first (ns++) $ unfoldFun e
             unfoldFun x = ([], x)
 
 instance Show TypedExpr where
@@ -103,7 +104,7 @@ fromAFT e = evalState (aux e) []
             AFT.Let v s -> Let <$> aux v <*> auxScope s
             AFT.Match e l -> Match <$> aux e <*> forM l auxPatScope
             where
-                auxScope (AFT.Scope n e) = traverse (withPush n . aux) (Scope n e)
-                auxPatScope (AFT.Scope ns (p, e)) =
+                auxScope (AFT.Scope n e) = traverse (withPush n . aux) (Scope [n] e)
+                auxPatScope (p, AFT.Scope ns e) =
                     let p' = fmap (\x -> BoundVar x (fromJust $ x `elemIndex` ns)) p in
-                    traverse (traverse (withPushAll ns . aux)) (Scope ns (p', e))
+                    traverse (traverse (withPushAll ns . aux)) (p', Scope ns e)

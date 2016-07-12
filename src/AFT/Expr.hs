@@ -23,7 +23,7 @@ data AbstractExpr a =
     | Fix (Scope Name a)
     | Ap a a
     | Let a (Scope Name a)
-    | Match a [Scope [Name] (Pattern Name, a)]
+    | Match a [(Pattern Name, Scope [Name] a)]
     | If a a a
 
 data Scope v e = Scope v e
@@ -49,7 +49,7 @@ fromAST (LFixP t e) = LFixP t $
         AST.Infix o e1 e2 -> Ap (untyped $ Ap (untyped $ Var o) (fromAST e1)) (fromAST e2)
         AST.Let x l v e -> mkLet x (fargs l $ fromAST v) (fromAST e)
         AST.LetR f l v e -> mkLet f (untyped $ mkFix f (fargs l $ fromAST v)) (fromAST e)
-        AST.Match e l -> Match (fromAST e) [ Scope (getPatternBinders p) (p, fromAST e) | (p, e) <- l ]
+        AST.Match e l -> Match (fromAST e) [ (p, Scope (getPatternBinders p) (fromAST e)) | (p, e) <- l ]
         AST.Wrap _ -> error "impossible"
     where
         untyped = LFixP Nothing

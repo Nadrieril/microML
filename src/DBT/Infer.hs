@@ -228,13 +228,13 @@ inferTypeE (LFixP t e) =
             Match e l -> do
                 e <- inferTypeE e
                 t <- TVar <$> freshV
-                l <- forM l $ \(Scope n (p, e')) -> do
+                l <- forM l $ \(p, Scope n e') -> do
                     bindersTVars <- forM n $ \_ -> TVar <$> freshV
                     pt <- inferPattern e bindersTVars p
                     unify e (label e) pt
                     e' <- localPushAll (TMono <$> bindersTVars) $ inferTypeE e'
                     unify e' t (label e')
-                    return $ Scope n (p, e')
+                    return (p, Scope n e')
                 return $ LFixP t $ Match e l
 
 
@@ -251,7 +251,7 @@ inferTypeE (LFixP t e) =
             return $ TProduct (adtName adt) (TVar <$> adtTVars)
 
 
-        inferScope :: Type -> Scope Name DBT.Expr -> Env r (Scope Name TypedExpr)
+        inferScope :: Type -> Scope DBT.Expr -> Env r (Scope TypedExpr)
         inferScope t = traverse (localPush t . inferTypeE)
 
 inferType :: C.Context -> DBT.Expr -> ([UnificationError], TypedExpr)

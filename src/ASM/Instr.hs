@@ -91,7 +91,7 @@ compileE (expr -> e) = case e of
                 (matches', lmatches + 1, execs', lc + lexecs + 1)
 
         compileE e
-        cases <- forM l $ \(DBT.Scope _ (p, e)) -> do
+        cases <- forM l $ \(p, DBT.Scope _ e) -> do
             c <- compile' e
             return (convertPattern p, c)
         let (matches, _, execs, _) = writeCases cases
