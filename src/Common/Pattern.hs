@@ -2,15 +2,10 @@
 module Common.Pattern (
       Pattern(..)
     , getPatternBinders
-    , getPatternADT
     ) where
 
-import qualified Data.Map as M
 import Text.Printf (printf)
 
-import qualified Common.ADT as ADT
-import Common.ADT hiding (Constructor)
-import Common.Context
 import Common.Expr
 import Utils.PrettyPrint
 import Parse.Token (isOperator)
@@ -30,11 +25,5 @@ instance PrettyPrint a => PrettyPrint (Pattern a) where
 
 
 getPatternBinders :: Pattern a -> [a]
-getPatternBinders (PVar v) = [v]
+getPatternBinders (PVar v) = return v
 getPatternBinders (Pattern _ l) = l >>= getPatternBinders
-
-getPatternADT :: Context -> Pattern a -> (ADT Id, ADT.Constructor Id)
-getPatternADT _ (PVar _) = error "Cannot get ADT information for free variable"
-getPatternADT ctx (Pattern n _) =
-    let Constructor adt i _ = fst $ ctx M.! n in
-    (adt, adtConstructors adt !! i)

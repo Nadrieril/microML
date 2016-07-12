@@ -22,7 +22,6 @@ import Utils (Stack)
 import qualified Utils (trace)
 import qualified Utils.UnionFind as UF
 import qualified DBT.Expr as DBT
-import Common.ADT
 import Common.Expr
 import Common.Pattern
 import Common.Type
@@ -229,8 +228,7 @@ inferTypeE (LFixP t e) =
                 e <- inferTypeE e
                 t <- TVar <$> freshV
                 l <- forM l $ \(p, Scope n e') -> do
-                    bindersTVars <- forM n $ \_ -> TVar <$> freshV
-                    pt <- inferPattern e bindersTVars p
+                    (bindersTVars, pt) <- runWriter (:) ([] :: [MonoType]) $ inferPattern e p
                     unify e (label e) pt
                     e' <- localPushAll (TMono <$> bindersTVars) $ inferTypeE e'
                     unify e' t (label e')
@@ -238,17 +236,23 @@ inferTypeE (LFixP t e) =
                 return $ LFixP t $ Match e l
 
 
-        inferPattern :: TypedExpr -> [MonoType] -> Pattern BoundVar -> Env r MonoType
-        inferPattern _ bindersTVars (PVar (BoundVar _ i)) = return $ bindersTVars !! i
-        inferPattern e bindersTVars p@(Pattern _ binders) = do
-            ctx <- ask
-            let (adt, ctor) = getPatternADT ctx p
-            adtTVars <- forM (adtParams adt) $ const freshV
-            let ctorTypes = map (fmap (adtTVars !!)) $ constructorParams ctor
-            forM_ (zip binders [0..]) $ \(b, j) -> do
-                t <- inferPattern e bindersTVars b
-                unify e t (ctorTypes !! j)
-            return $ TProduct (adtName adt) (TVar <$> adtTVars)
+        inferPattern :: Member (Writer MonoType) r => TypedExpr -> Pattern BoundVar -> Env r MonoType
+        inferPattern _ (PVar _) = do
+            t <- TVar <$> freshV
+            tell t
+            return t
+        inferPattern e (Pattern n binders) = do
+            ctx :: C.Context <- ask
+            let (_, ctorType) = ctx M.! n
+            types <- unfoldarrow <$> inst ctorType
+            let ctorTypeArgs = init types
+
+            binderTypes <- forM binders $ inferPattern e
+            forM_ (zip binderTypes ctorTypeArgs) $ uncurry (unify e)
+
+            return $ last types
+            where unfoldarrow (t1 :-> t2) = t1 : unfoldarrow t2
+                  unfoldarrow x = [x]
 
 
         inferScope :: Type -> Scope DBT.Expr -> Env r (Scope TypedExpr)
